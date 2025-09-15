@@ -387,11 +387,11 @@ class LandTalkDockWidget(QDockWidget):
                 padding: 4px 8px;
                 font-weight: bold;
                 font-size: 10pt;
-                margin-right: 6px;
+                margin-right: 12px;
                 margin-left: 0;
-                height: 23px;
-                min-height: 23px;
-                max-height: 23px;
+                height: 21px;
+                min-height: 21px;
+                max-height: 21px;
                 margin-bottom: 3px;
             }
             QPushButton:hover {
@@ -428,9 +428,9 @@ class LandTalkDockWidget(QDockWidget):
                 min-width: 60px;
                 max-width: 96px;
                 margin-left: 0;
-                height: 23px;
-                min-height: 23px;
-                max-height: 23px;
+                height: 21px;
+                min-height: 21px;
+                max-height: 21px;
                 margin-bottom: 3px;
             }
             QComboBox:focus {
@@ -478,9 +478,9 @@ class LandTalkDockWidget(QDockWidget):
                 font-size: 8pt;
                 margin-left: 0;
                 text-align: right;
-                height: 23px;
-                min-height: 23px;
-                max-height: 23px;
+                height: 21px;
+                min-height: 21px;
+                max-height: 21px;
                 margin-bottom: 3px;
             }
             QLineEdit:focus {

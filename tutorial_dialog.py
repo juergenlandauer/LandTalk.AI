@@ -132,7 +132,7 @@ class TutorialDialog(QDialog):
         header_layout.addWidget(title_label)
         
         # Subtitle
-        subtitle_label = QLabel("Your AI-powered landscape analysis tool")
+        subtitle_label = QLabel("Your Landscape Talks With You using AI")
         subtitle_label.setStyleSheet("color: #666; font-size: 12pt; margin-bottom: 15px;")
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(subtitle_label)
@@ -168,10 +168,10 @@ class TutorialDialog(QDialog):
         # Step 1: API Keys
         self.add_section_header(content_layout, "Step 1: Set Up Your API Keys", "1")
         self.add_text_content(content_layout, 
-            "Before you can use LandTalk.AI, you need to register with Google Gemini and/or OpenAI and get an API key:\n\n"
-            "• <b>Google Gemini:</b> Visit <a href='https://makersuite.google.com/app/apikey'>Google AI Studio</a> to get your free API key\n"
-            "• <b>OpenAI GPT:</b> Visit <a href='https://platform.openai.com/api-keys'>OpenAI Platform</a> to get your API key\n\n"
-            "Once you have your key, click the <b>Options</b> button in the LandTalk.AI panel and select the appropriate key option to enter it."
+            "Before you can use LandTalk.AI, you need to register with Google Gemini and/or OpenAI and get an API key:<br><br>"
+            "• <b>Google Gemini:</b> Visit <a href='https://makersuite.google.com/app/apikey'>Google AI Studio</a> to get your free API key<br>"
+            "• <b>OpenAI GPT:</b> Visit <a href='https://platform.openai.com/api-keys'>OpenAI Platform</a> to get your API key<br><br>"
+            "Once you have your key, click the <b>Options</b> button in the LandTalk.AI panel and select the appropriate key option to enter it.<br>"
             "Recommendation: try both AI providers to see which one works best for your use case."
         )
         
@@ -181,7 +181,7 @@ class TutorialDialog(QDialog):
             "The basic workflow for using LandTalk.AI is simple:<br><br>"
             "1. <b>Select an area:</b> Click 'Select area' and draw a rectangle on your map<br>"
             "2. <b>Add a message (optional):</b> Explain in more detail what you want to analyze in the text box<br>"
-            "3. <b>Choose AI model:</b> Select from Gemini or GPT models in the dropdown<br>"
+            "3. <b>Choose AI model (optional):</b> Select from Gemini or GPT models in the dropdown<br>"
             "4. <b>Analyze:</b> Click 'Analyze' to send your request to the AI<br>"
             "5. <b>View results:</b> The AI will create map layers in a new group called 'LandTalk.ai' showing detected features"
         )
@@ -367,8 +367,8 @@ class TutorialDialog(QDialog):
         text_widget = QTextEdit()
         text_widget.setHtml(text)
         text_widget.setReadOnly(True)
-        text_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        text_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        text_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        text_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         text_widget.setStyleSheet("""
             QTextEdit {
                 background-color: #f8f9fa;
@@ -381,13 +381,20 @@ class TutorialDialog(QDialog):
         """)
         
         # Calculate the required height based on content
+        # First, we need to ensure the widget is properly sized to get accurate measurements
+        text_widget.setMinimumHeight(0)
+        text_widget.setMaximumHeight(16777215)  # Reset max height temporarily
+        
+        # Force a layout update to get proper document size
         text_widget.document().setTextWidth(text_widget.viewport().width())
+        
+        # Get the document height
         doc_height = text_widget.document().size().height()
         
-        # Set a reasonable height based on content, with some padding
-        content_height = int(doc_height) + 30  # Add padding
-        min_height = 150  # Minimum height for readability
-        max_height = 600  # Maximum height to prevent excessive space usage
+        # Add padding for borders and margins (15px top + 15px bottom + some extra)
+        content_height = int(doc_height) + 50  # Increased padding for better spacing
+        min_height = 100  # Reduced minimum height
+        max_height = 800  # Increased maximum height for longer content
         
         # Set the height within reasonable bounds
         final_height = max(min_height, min(content_height, max_height))
