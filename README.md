@@ -1,6 +1,6 @@
-# LandTalk.ai - Your Landscape Talks With you using Artificial Intelligence (AI)
+# LandTalk.ai - Your Landscape Talks With You 
 
- A QGIS plugin that allows users to analyze map areas using ChagGPT or Google's Gemini multimodal AI.
+ A QGIS plugin that allows users to analyze map areas using ChatGPT or Google's Gemini multimodal AI.
 
  ## Features
 
