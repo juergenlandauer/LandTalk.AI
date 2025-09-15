@@ -1,6 +1,6 @@
 [general]
  name=LandTalk.AI
- qgisMinimumVersion=3.40
+ qgisMinimumVersion=3.26
  description="LandTalk.AI - Your Landscape Talks With You using AI: Analyze map areas using Google Gemini or ChatGPT multimodal AI.
  version=0.1.3
  author=Juergen Landauer
@@ -14,3 +14,4 @@
  deprecated=False
  supportsQt6=True
  tags=gemini,chatgpt,ai,artificial intelligence,analysis,raster
+
