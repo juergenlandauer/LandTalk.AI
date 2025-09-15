@@ -1,0 +1,9 @@
+# LandTalk.AI Plugin Dependencies
+# Install these packages in your QGIS Python environment
+
+# Core dependencies
+requests>=2.25.0
+
+# Optional: For better JSON handling
+# (usually included with Python 3.7+)
+# json5>=0.9.0

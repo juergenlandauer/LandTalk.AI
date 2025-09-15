@@ -1,0 +1,16 @@
+[general]
+ name=LandTalk.AI
+ qgisMinimumVersion=3.40
+ description="LandTalk.AI - Your Landscape Talks With You using AI: Analyze map areas using Google Gemini or ChatGPT multimodal AI.
+ version=0.1.3
+ author=Juergen Landauer
+ email=juergen@landauer-ai.de
+ license=GPL-3.0
+ about=This plugin allows users to select an area of the map, capture it as an image, and analyze it using Google Gemini or ChatGPT.
+ tracker=https://github.com/juergenlandauer/LandTalk.AI/issues
+ repository=https://github.com/juergenlandauer/LandTalk.AI
+ hasProcessingProvider=no
+ experimental=True
+ deprecated=False
+ supportsQt6=True
+ tags=gemini,chatgpt,ai,artificial intelligence,analysis,raster
