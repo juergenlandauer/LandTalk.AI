@@ -71,5 +71,6 @@ www.landauer-ai.de
 
  ## Support
 
- For issues or feature requests, please contact the developer at juergen AT landauer-ai.de
+ For issues or feature requests, please contact the developer at juergen@landauer-ai.de
+
 
