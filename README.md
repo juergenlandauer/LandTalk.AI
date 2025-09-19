@@ -1,3 +1,5 @@
+www.landauer-ai.de
+
 # LandTalk.ai - Your Landscape Talks With You 
 
 ![LandTalk Icon](icons/LT.AI.png)
@@ -69,4 +71,5 @@
 
  ## Support
 
- For issues or feature requests, please contact the developer.
+ For issues or feature requests, please contact the developer at juergen AT landauer-ai.de
+
