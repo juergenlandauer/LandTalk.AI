@@ -1,0 +1,6 @@
+{
+  "confidence_threshold": 0,
+  "custom_analysis_directory": null,
+  "auto_clear_on_model_change": true,
+  "last_selected_model": "gemini-2.5-flash"
+}

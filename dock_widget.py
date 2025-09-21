@@ -355,19 +355,15 @@ class LandTalkDockWidget(QDockWidget):
         self.settings_menu.setToolTip("Options")
         
         # Create menu actions
-        self.tutorial_action = QAction("Show Tutorial", self.main_widget)
         self.logging_action = QAction("Save Log File", self.main_widget)
         self.gemini_key_action = QAction("Set Gemini API Key", self.main_widget)
         self.gpt_key_action = QAction("Set GPT API Key", self.main_widget)
         
         # Connect actions to functions
-        self.tutorial_action.triggered.connect(self.show_tutorial)
         self.logging_action.triggered.connect(self.save_log_file)
         self.gemini_key_action.triggered.connect(lambda: self.parent_plugin.get_gemini_key() if self.parent_plugin else None)
         self.gpt_key_action.triggered.connect(lambda: self.parent_plugin.get_gpt_key() if self.parent_plugin else None)
         
-        self.settings_menu.addAction(self.tutorial_action)
-        self.settings_menu.addSeparator()
         self.settings_menu.addAction(self.logging_action)
         self.settings_menu.addSeparator()
         self.settings_menu.addAction(self.gemini_key_action)
@@ -375,39 +371,31 @@ class LandTalkDockWidget(QDockWidget):
         
         # Create a prefs button with text
         self.prefs_button = QPushButton("Options")
+        self.prefs_button.setMinimumWidth(80)
         self.prefs_button.setMaximumHeight(25)
-        self.prefs_button.setMaximumWidth(100)
-        self.prefs_button.setMinimumWidth(100)
+        self.prefs_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.prefs_button.setStyleSheet("""
             QPushButton {
-                background-color: #dee2e6;
-                color: #666;
-                border: 2px solid #dee2e6;
+                background-color: #6c757d;
+                color: white;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-weight: bold;
-                font-size: 10pt;
-                margin-right: 12px;
+                font-size: 8pt;
+                margin-right: 6px;
                 margin-left: 0;
-                height: 21px;
-                min-height: 21px;
-                max-height: 21px;
-                margin-bottom: 3px;
             }
             QPushButton:hover {
-                background-color: #d1d5db;
-                border-color: #d1d5db;
+                background-color: #5a6268;
             }
             QPushButton:pressed {
-                background-color: #c4c9d0;
-                border-color: #c4c9d0;
+                background-color: #545b62;
             }
         """)
         self.prefs_button.setToolTip("Options")
         self.prefs_button.setMenu(self.settings_menu)
         
-        # Add the prefs button to the top-right corner
-        self.menu_bar.setCornerWidget(self.prefs_button, Qt.Corner.TopRightCorner if hasattr(Qt, 'Corner') else 2)
+        # Note: Options button will be added to the bottom button layout instead
         
         # Add AI model selection dropdown to menu bar
         
@@ -428,9 +416,9 @@ class LandTalkDockWidget(QDockWidget):
                 min-width: 60px;
                 max-width: 96px;
                 margin-left: 0;
-                height: 21px;
-                min-height: 21px;
-                max-height: 21px;
+                height: 20px;
+                min-height: 20px;
+                max-height: 20px;
                 margin-bottom: 3px;
             }
             QComboBox:focus {
@@ -444,7 +432,7 @@ class LandTalkDockWidget(QDockWidget):
 
         
         # Add probability input field
-        self.prob_label = QLabel("Conf. (%) >")
+        self.prob_label = QLabel("Min. confidence (%):")
         self.prob_label.setStyleSheet("""
             QLabel {
                 color: #666;
@@ -452,9 +440,9 @@ class LandTalkDockWidget(QDockWidget):
                 margin-left: 4px;
                 margin-right: 0px;
                 padding: 2px 0px;
-                height: 23px;
-                min-height: 23px;
-                max-height: 23px;
+                height: 20px;
+                min-height: 20px;
+                max-height: 20px;
                 margin-bottom: 3px;
             }
         """)
@@ -463,11 +451,11 @@ class LandTalkDockWidget(QDockWidget):
         self.prob_input = QLineEdit()
         self.prob_input.setText("0")
         self.prob_input.setMaximumWidth(36)
-        self.prob_input.setMaximumHeight(25)
+        self.prob_input.setMaximumHeight(20)
         self.prob_input.setToolTip("Filter for features with confidence greater than this value (0-100)")
         
-        # Set up integer validator for 0-100 range
-        prob_validator = QIntValidator(0, 100)
+        # Set up integer validator for 0-99 range
+        prob_validator = QIntValidator(0, 99)
         self.prob_input.setValidator(prob_validator)
         
         self.prob_input.setStyleSheet("""
@@ -478,9 +466,9 @@ class LandTalkDockWidget(QDockWidget):
                 font-size: 8pt;
                 margin-left: 0;
                 text-align: right;
-                height: 21px;
-                min-height: 21px;
-                max-height: 21px;
+                height: 20px;
+                min-height: 20px;
+                max-height: 20px;
                 margin-bottom: 3px;
             }
             QLineEdit:focus {
@@ -522,7 +510,7 @@ class LandTalkDockWidget(QDockWidget):
         self.tutorial_button.setToolTip("Show tutorial")
         self.tutorial_button.setStyleSheet("""
             QPushButton {
-                background-color: #28a745;
+                background-color: #6c757d;
                 color: white;
                 border-radius: 4px;
                 padding: 4px 8px;
@@ -532,10 +520,10 @@ class LandTalkDockWidget(QDockWidget):
                 margin-left: 0;
             }
             QPushButton:hover {
-                background-color: #218838;
+                background-color: #5a6268;
             }
             QPushButton:pressed {
-                background-color: #1e7e34;
+                background-color: #545b62;
             }
         """)
         self.tutorial_button.clicked.connect(self.show_tutorial)
@@ -672,26 +660,6 @@ class LandTalkDockWidget(QDockWidget):
             QComboBox:hover {
                 border-color: #4285F4;
             }
-            QComboBox::drop-down {
-                border: none;
-                background-color: #f8f9fa;
-                border-left: 1px solid #dee2e6;
-                width: 20px;
-                height: 19px;
-            }
-            QComboBox::down-arrow {
-                width: 12px;
-                height: 12px;
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 6px solid #666;
-                margin-right: 4px;
-                margin-top: 3px;
-            }
-            QComboBox::down-arrow:hover {
-                border-top-color: #4285F4;
-            }
             QComboBox QAbstractItemView {
                 font-size: 8pt;
                 min-width: 100px;
@@ -807,11 +775,15 @@ class LandTalkDockWidget(QDockWidget):
         input_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         input_section.addWidget(input_label)
         
+        # Create horizontal layout for text input and analyze button
+        input_and_button_layout = QHBoxLayout()
+        input_and_button_layout.setSpacing(8)
+        
         self.prompt_text = QTextEdit()
         self.prompt_text.setMaximumHeight(80)
-        self.prompt_text.setMinimumHeight(60)
+        self.prompt_text.setMinimumHeight(80)
         self.prompt_text.setToolTip("Type your message here and click 'Analyze' to send.")
-        # Set fixed height policy for input text area
+        # Set expanding size policy for input text area
         self.prompt_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         self.prompt_text.setStyleSheet("""
@@ -826,21 +798,10 @@ class LandTalkDockWidget(QDockWidget):
             }
         """)
         
-        # Add keyboard shortcut support for sending messages
-        
-        # Escape key to interrupt AI response
-        escape_shortcut = QShortcut(QKeySequence("Escape"), self)
-        escape_shortcut.activated.connect(self.interrupt_ai_request)
-        
-        input_section.addWidget(self.prompt_text)
-        
-        # Single send button
-        button_layout = QHBoxLayout()
-        
         # Create and style the send button
         self.send_button = QPushButton("Analyze")
         self.send_button.setMinimumWidth(80)
-        self.send_button.setMaximumHeight(30)
+        self.send_button.setMaximumHeight(80)  # Match the text input height
         self.send_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.send_button.setStyleSheet("""
             QPushButton {
@@ -860,13 +821,28 @@ class LandTalkDockWidget(QDockWidget):
         """)
         self.send_button.clicked.connect(self.send_message_to_selected_ai)
         
+        # Add text input and button to horizontal layout
+        input_and_button_layout.addWidget(self.prompt_text)
+        input_and_button_layout.addStretch()  # Add stretch to push button to the right
+        input_and_button_layout.addWidget(self.send_button)
+        input_section.addLayout(input_and_button_layout)
+        
+        # Add keyboard shortcut support for sending messages
+        
+        # Escape key to interrupt AI response
+        escape_shortcut = QShortcut(QKeySequence("Escape"), self)
+        escape_shortcut.activated.connect(self.interrupt_ai_request)
+        
+        # Other buttons layout
+        button_layout = QHBoxLayout()
+        
         # Connect model selection change to auto-clear functionality
         self.ai_model_combo.currentTextChanged.connect(self.on_model_changed)
         
         button_layout.addWidget(self.tutorial_button)
         button_layout.addWidget(self.rules_button)
+        button_layout.addWidget(self.prefs_button)
         button_layout.addStretch()
-        button_layout.addWidget(self.send_button)
         input_section.addLayout(button_layout)
         
         layout.addWidget(self.input_section_widget)
@@ -1209,12 +1185,12 @@ class LandTalkDockWidget(QDockWidget):
             )
     
     
-    def json_to_bullet_points(self, json_data):
+    def json_to_bullet_points(self, json_data, bg_color="#f8f9fa"):
         """Convert JSON data to HTML format reflecting layer names"""
         if isinstance(json_data, list):
             # Handle array of objects (common for multiple detections)
             if not json_data:
-                return "<div>No items found</div>"
+                return f"<div style='color: #000000; background-color: {bg_color}; padding: 8px; border-radius: 4px;'>No items found</div>"
             
             html = "<div>"
             for i, item in enumerate(json_data):
@@ -1260,7 +1236,7 @@ class LandTalkDockWidget(QDockWidget):
                     
                     # Format: (detection number) Object Type (percentage)
                     percentage = f"{probability:.0f}%" if isinstance(probability, (int, float)) else "0%"
-                    html += f"<div style='margin-bottom: 8px;'><strong>({detection_num}) {object_type} ({percentage})</strong>"
+                    html += f"<div style='margin-bottom: 8px; color: #000000; background-color: {bg_color}; padding: 8px; border-radius: 4px;'><strong>({detection_num}) {object_type} ({percentage})</strong>"
                     
                     # Add reason on new line if present
                     if reason:
@@ -1268,7 +1244,7 @@ class LandTalkDockWidget(QDockWidget):
                     
                     html += "</div>"
                 else:
-                    html += f"<div>{self.format_value(item)}</div>"
+                    html += f"<div style='color: #000000; background-color: {bg_color}; padding: 8px; border-radius: 4px;'>{self.format_value(item)}</div>"
             html += "</div>"
             return html
             
@@ -1314,7 +1290,7 @@ class LandTalkDockWidget(QDockWidget):
             
             # Format: (detection number) Object Type (percentage)
             percentage = f"{probability:.0f}%" if isinstance(probability, (int, float)) else "0%"
-            html = f"<div><strong>({detection_num}) {object_type} ({percentage})</strong>"
+            html = f"<div style='color: #000000; background-color: {bg_color}; padding: 8px; border-radius: 4px;'><strong>({detection_num}) {object_type} ({percentage})</strong>"
             
             # Add reason on new line if present
             if reason:
@@ -1358,7 +1334,7 @@ class LandTalkDockWidget(QDockWidget):
         # If JSON data is provided, show only the structured data
         if json_data:
             if isinstance(json_data, (dict, list)):
-                json_formatted = self.json_to_bullet_points(json_data)
+                json_formatted = self.json_to_bullet_points(json_data, bg_color)
             else:
                 json_formatted = str(json_data)
             formatted_message = json_formatted
