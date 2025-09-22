@@ -193,8 +193,7 @@ class TutorialDialog(QDialog):
         text_layout.addWidget(desc_label)
         
         # Add text layout to horizontal layout
-        icon_text_layout.addLayout(text_layout)
-        icon_text_layout.addStretch()  # Push content to the left
+        icon_text_layout.addLayout(text_layout, 1)  # Give text layout stretch factor of 1
         
         # Add the horizontal layout to the main header layout
         header_layout.addLayout(icon_text_layout)

@@ -401,12 +401,13 @@ class LandTalkDockWidget(QDockWidget):
         
         self.ai_model_combo = QComboBox()
         self.ai_model_combo.addItem("gemini-2.0-flash", "gemini-2.0-flash")
+        self.ai_model_combo.addItem("gemini-2.5-flash-lite", "gemini-2.5-flash-lite")
         self.ai_model_combo.addItem("gemini-2.5-pro", "gemini-2.5-pro")
         self.ai_model_combo.addItem("gemini-2.5-flash (recommended)", "gemini-2.5-flash")
         self.ai_model_combo.addItem("gpt5-mini (recommended)", "gpt5-mini")
         self.ai_model_combo.addItem("gpt5", "gpt5")
         self.ai_model_combo.addItem("gpt-4o-mini", "gpt-4o-mini")
-        self.ai_model_combo.setCurrentIndex(2)  # Default to gemini-2.5-flash
+        self.ai_model_combo.setCurrentIndex(3)  # Default to gemini-2.5-flash
         self.ai_model_combo.setStyleSheet("""
             QComboBox {
                 border: 2px solid #dee2e6;
@@ -780,8 +781,8 @@ class LandTalkDockWidget(QDockWidget):
         input_and_button_layout.setSpacing(8)
         
         self.prompt_text = QTextEdit()
-        self.prompt_text.setMaximumHeight(80)
-        self.prompt_text.setMinimumHeight(80)
+        self.prompt_text.setMaximumHeight(50)  # Reduced for 2 lines
+        self.prompt_text.setMinimumHeight(50)  # Reduced for 2 lines
         self.prompt_text.setToolTip("Type your message here and click 'Analyze' to send.")
         # Set expanding size policy for input text area
         self.prompt_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -800,8 +801,9 @@ class LandTalkDockWidget(QDockWidget):
         
         # Create and style the send button
         self.send_button = QPushButton("Analyze")
-        self.send_button.setMinimumWidth(80)
-        self.send_button.setMaximumHeight(80)  # Match the text input height
+        self.send_button.setMinimumWidth(60)  # Reduced width
+        self.send_button.setMaximumWidth(60)  # Set maximum width to match minimum
+        self.send_button.setMaximumHeight(50)  # Match the text input height
         self.send_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.send_button.setStyleSheet("""
             QPushButton {
