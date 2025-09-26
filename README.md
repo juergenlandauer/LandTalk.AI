@@ -6,8 +6,9 @@
 
  This work is based on our research published in MDPI Geomatics 2025: "Visual Foundation Models for Archaeological Remote Sensing: A Zero-Shot Approach" by Juergen Landauer and Sarah Klassen. (preprint available at https://www.preprints.org/manuscript/202508.0379/v1)
 
- ## Features
+## Workflow
 
+ - IMPORTANT: read the tutorial! If you are NOT an archaeologist, you need to click the rules button and modify the text there according to your field of interest!
  - Select a rectangular area of your map
  - Capture the selected area as an image
  - Send the image along with a text prompt to Google Gemini or ChatGPT
@@ -70,3 +71,4 @@
  ## Support
 
  For issues or feature requests, please contact the developer.
+
