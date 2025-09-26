@@ -8,7 +8,7 @@
 
 ## Workflow
 
- - IMPORTANT: read the tutorial! If you are NOT an archaeologist, you need to click the rules button and modify the text there according to your field of interest!
+ - IMPORTANT: read the tutorial! If you are NOT an archaeologist, you need to click the 'Rules' button and modify the text there according to your field of interest!
  - Select a rectangular area of your map
  - Capture the selected area as an image
  - Send the image along with a text prompt to Google Gemini or ChatGPT
@@ -71,4 +71,5 @@
  ## Support
 
  For issues or feature requests, please contact the developer.
+
 
