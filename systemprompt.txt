@@ -6,6 +6,6 @@ For each distinct object or feature only if confidently detected, return the fol
 -	Reason - textually explain why you think the given object is found.
 ####
 
-You are analyzing analysing remote sensing data LiDAR or satellite or maps that may contain archaeological features i.e. ancient man-made structures.
+You are analyzing remote sensing data LiDAR or satellite or maps that may contain archaeological features i.e. ancient man-made structures.
 
 If no archaeological features are confidently detected, return the text "Sorry, nothing found."

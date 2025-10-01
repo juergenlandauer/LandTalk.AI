@@ -35,7 +35,7 @@ import os
 import tempfile
 import base64
 from qgis.PyQt.QtCore import Qt, QRectF, QSize, pyqtSignal, QPointF, QPoint
-from qgis.PyQt.QtGui import QColor, QPixmap
+from qgis.PyQt.QtGui import QColor, QPixmap, QPainter, QPen
 from qgis.core import (
     Qgis, QgsProject, QgsMapSettings, 
     QgsRectangle, QgsMapRendererParallelJob, QgsWkbTypes,
@@ -63,6 +63,23 @@ class RectangleMapTool(QgsMapTool):
         self.end_point = None
         self.is_drawing = False
         # The signal is now defined as a class variable above
+    
+    def _convert_screen_rect_to_map_points(self, rect):
+        """Convert screen rectangle to map coordinate points.
+        
+        Args:
+            rect: QRectF in screen coordinates
+            
+        Returns:
+            tuple: (topLeft, topRight, bottomRight, bottomLeft) as map coordinates
+        """
+        # Convert QPointF to map coordinates (using correct QPoint conversion)
+        topLeft = self.toMapCoordinates(QPoint(int(rect.topLeft().x()), int(rect.topLeft().y())))
+        topRight = self.toMapCoordinates(QPoint(int(rect.topRight().x()), int(rect.topRight().y())))
+        bottomRight = self.toMapCoordinates(QPoint(int(rect.bottomRight().x()), int(rect.bottomRight().y())))
+        bottomLeft = self.toMapCoordinates(QPoint(int(rect.bottomLeft().x()), int(rect.bottomLeft().y())))
+        
+        return topLeft, topRight, bottomRight, bottomLeft
         
     def canvasPressEvent(self, event):
         self.start_point = self.toMapCoordinates(event.pos())
@@ -82,11 +99,8 @@ class RectangleMapTool(QgsMapTool):
         # Get the rectangle in pixels
         rect = self.get_rectangle()
         
-        # Convert QPointF to map coordinates (using correct QPoint conversion)
-        topLeft = self.toMapCoordinates(QPoint(int(rect.topLeft().x()), int(rect.topLeft().y())))
-        topRight = self.toMapCoordinates(QPoint(int(rect.topRight().x()), int(rect.topRight().y())))
-        bottomRight = self.toMapCoordinates(QPoint(int(rect.bottomRight().x()), int(rect.bottomRight().y())))
-        bottomLeft = self.toMapCoordinates(QPoint(int(rect.bottomLeft().x()), int(rect.bottomLeft().y())))
+        # Convert screen rectangle to map points using helper method
+        topLeft, topRight, bottomRight, bottomLeft = self._convert_screen_rect_to_map_points(rect)
         
         # Add the points to the rubber band
         self.rubber_band.addPoint(topLeft)
@@ -126,6 +140,12 @@ class RectangleMapTool(QgsMapTool):
 class MapRenderer:
     """Helper class for map rendering operations"""
     
+    # Constants for thumbnail generation
+    MAX_THUMBNAIL_WIDTH = 200
+    MAX_THUMBNAIL_HEIGHT = 150
+    TEMP_IMAGE_FILENAME = "gemini_map_image.png"
+    TEMP_THUMBNAIL_FILENAME = "gemini_map_thumbnail.png"
+    
     def __init__(self, map_canvas, ground_resolution_m_per_px=1.0):
         self.map_canvas = map_canvas
         self.ground_resolution_m_per_px = ground_resolution_m_per_px
@@ -158,6 +178,9 @@ class MapRenderer:
         extent_width = abs(bottom_right_map.x() - top_left_map.x())
         extent_height = abs(bottom_right_map.y() - top_left_map.y())
         
+        # Log the map coordinates of the rectangle
+        logger.info(f"Rectangle map coordinates: Top-left: ({top_left_map.x():.6f}, {top_left_map.y():.6f}), Bottom-right: ({bottom_right_map.x():.6f}, {bottom_right_map.y():.6f}), Extent: {extent_width:.6f} x {extent_height:.6f} map units")
+        
         return top_left_map, bottom_right_map, map_extent, extent_width, extent_height
 
     def filter_canvas_layers(self):
@@ -167,40 +190,114 @@ class MapRenderer:
             list: Filtered list of layers excluding LandTalk.ai analysis layers
         """
         canvas_layers = self.map_canvas.layers()
-        filtered_layers = []
         ai_analysis_group = QgsProject.instance().layerTreeRoot().findGroup("LandTalk.ai")
         
         logger.info(f"Total canvas layers: {len(canvas_layers)}")
         logger.info(f"LandTalk.ai group found: {ai_analysis_group is not None}")
         
+        # Early return if no LandTalk.ai group exists - no filtering needed
+        if not ai_analysis_group:
+            valid_layers = [layer for layer in canvas_layers if layer.isValid()]
+            logger.info(f"No LandTalk.ai group found, returning {len(valid_layers)} valid layers")
+            return valid_layers
+        
+        # Build set of layer IDs in LandTalk.ai group for faster lookup
+        landtalk_layer_ids = set()
+        self._collect_group_layer_ids(ai_analysis_group, landtalk_layer_ids)
+        
+        # Filter layers using the prebuilt set for O(1) lookup
+        filtered_layers = []
+        excluded_count = 0
+        
         for layer in canvas_layers:
-            if layer.isValid():
-                # Check if layer is in the LandTalk.ai group or any of its subgroups
-                layer_tree_layer = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
-                if layer_tree_layer and ai_analysis_group:
-                    # Check if this layer is anywhere within the LandTalk.ai group hierarchy
-                    current_parent = layer_tree_layer.parent()
-                    is_in_landtalk_group = False
-                    
-                    # Walk up the parent hierarchy to check if we're in the LandTalk.ai group
-                    while current_parent:
-                        if current_parent == ai_analysis_group:
-                            is_in_landtalk_group = True
-                            break
-                        # Check if current parent is a group and get its parent
-                        if hasattr(current_parent, 'parent'):
-                            current_parent = current_parent.parent()
-                        else:
-                            break
-                    
-                    if is_in_landtalk_group:
-                        logger.info(f"Excluding LandTalk.ai layer: {layer.name()}")
-                        continue
+            if not layer.isValid():
+                continue
                 
+            if layer.id() in landtalk_layer_ids:
+                logger.info(f"Excluding LandTalk.ai layer: {layer.name()}")
+                excluded_count += 1
+            else:
                 filtered_layers.append(layer)
         
-        logger.info(f"Filtered layers count: {len(filtered_layers)} (excluded {len(canvas_layers) - len(filtered_layers)} LandTalk.ai layers)")
+        logger.info(f"Filtered layers count: {len(filtered_layers)} (excluded {excluded_count} LandTalk.ai layers)")
         return filtered_layers
+    
+    def _collect_group_layer_ids(self, group_node, layer_id_set):
+        """Recursively collect all layer IDs within a group and its subgroups.
+        
+        Args:
+            group_node: QgsLayerTreeGroup to process
+            layer_id_set: Set to add layer IDs to
+        """
+        for child in group_node.children():
+            if hasattr(child, 'layer') and child.layer():
+                # This is a layer node
+                layer_id_set.add(child.layer().id())
+            elif hasattr(child, 'children'):
+                # This is a group node, recurse into it
+                self._collect_group_layer_ids(child, layer_id_set)
+
+    def _calculate_thumbnail_dimensions(self, source_width, source_height):
+        """Calculate thumbnail dimensions while preserving aspect ratio.
+        
+        Args:
+            source_width: Original width (pixels or any unit)
+            source_height: Original height (pixels or any unit)
+            
+        Returns:
+            tuple: (thumbnail_width, thumbnail_height)
+        """
+        if source_height <= 0:
+            return self.MAX_THUMBNAIL_WIDTH, self.MAX_THUMBNAIL_HEIGHT
+            
+        aspect_ratio = source_width / source_height
+        max_ratio = self.MAX_THUMBNAIL_WIDTH / self.MAX_THUMBNAIL_HEIGHT
+        
+        if aspect_ratio >= max_ratio:
+            # Image is wider, constrain by width
+            thumbnail_width = self.MAX_THUMBNAIL_WIDTH
+            thumbnail_height = int(self.MAX_THUMBNAIL_WIDTH / aspect_ratio)
+        else:
+            # Image is taller, constrain by height
+            thumbnail_height = self.MAX_THUMBNAIL_HEIGHT
+            thumbnail_width = int(self.MAX_THUMBNAIL_HEIGHT * aspect_ratio)
+            
+        return thumbnail_width, thumbnail_height
+
+    def _save_thumbnail_to_temp(self, thumbnail_pixmap):
+        """Save thumbnail to temporary directory with standardized error handling.
+        
+        Args:
+            thumbnail_pixmap: QPixmap to save
+            
+        Returns:
+            str: Path to saved thumbnail, or None if failed
+        """
+        try:
+            thumbnail_path = os.path.join(tempfile.gettempdir(), self.TEMP_THUMBNAIL_FILENAME)
+            if thumbnail_pixmap.save(thumbnail_path, "PNG"):
+                logger.info(f"Thumbnail saved to temp directory: {thumbnail_path}")
+                return thumbnail_path
+            else:
+                logger.warning(f"Failed to save thumbnail to: {thumbnail_path}")
+                return None
+        except Exception as e:
+            logger.warning(f"Failed to save thumbnail to temp directory: {str(e)}")
+            return None
+
+    def _handle_operation_error(self, operation_name, error, return_value=None):
+        """Standardized error handling for map operations.
+        
+        Args:
+            operation_name: Name of the operation for logging
+            error: Exception that occurred
+            return_value: Value to return on error (default: None)
+            
+        Returns:
+            The specified return_value
+        """
+        logger.error(f"Error in {operation_name}: {str(error)}")
+        return return_value
 
     def create_and_render_map(self, map_extent, output_width, output_height):
         """Create map settings and render the map.
@@ -236,11 +333,52 @@ class MapRenderer:
         return rendered_image
 
     def capture_map_thumbnail(self, selected_rectangle):
-        """Capture a thumbnail of the selected area for display purposes"""
+        """Create a thumbnail from the AI image to ensure perfect consistency.
+        This method now creates a scaled-down version of the exact same image that goes to AI."""
         if not selected_rectangle:
             logger.info("No selected rectangle for thumbnail")
             return None
         
+        try:
+            # Check if AI image already exists
+            ai_image_path = os.path.join(tempfile.gettempdir(), self.TEMP_IMAGE_FILENAME)
+            
+            if os.path.exists(ai_image_path):
+                # Load the AI image and create a thumbnail from it
+                ai_pixmap = QPixmap(ai_image_path)
+                if not ai_pixmap.isNull():
+                    # Calculate thumbnail dimensions using helper method
+                    original_width = ai_pixmap.width()
+                    original_height = ai_pixmap.height()
+                    thumbnail_width, thumbnail_height = self._calculate_thumbnail_dimensions(
+                        original_width, original_height
+                    )
+                    
+                    # Scale the AI image to thumbnail size
+                    thumbnail_pixmap = ai_pixmap.scaled(
+                        thumbnail_width, thumbnail_height, 
+                        Qt.AspectRatioMode.KeepAspectRatio, 
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    
+                    logger.info(f"Created thumbnail from AI image: {original_width}x{original_height} -> {thumbnail_width}x{thumbnail_height}")
+                    
+                    # Save thumbnail using helper method
+                    self._save_thumbnail_to_temp(thumbnail_pixmap)
+                    
+                    return thumbnail_pixmap
+                else:
+                    logger.warning("AI image exists but failed to load as pixmap")
+            
+            # Fallback: AI image doesn't exist yet, create thumbnail using original method
+            logger.info("AI image not found, creating thumbnail using original rendering method")
+            return self._create_original_thumbnail(selected_rectangle)
+            
+        except Exception as e:
+            return self._handle_operation_error("capture_map_thumbnail", e)
+
+    def _create_original_thumbnail(self, selected_rectangle):
+        """Original thumbnail creation method as fallback"""
         try:
             # Get map coordinates and extent using common helper
             top_left_map, bottom_right_map, map_extent, extent_width, extent_height = self.get_map_coordinates_and_extent(selected_rectangle)
@@ -248,24 +386,12 @@ class MapRenderer:
                 logger.info("No selected rectangle for thumbnail")
                 return None
             
-            # Calculate aspect ratio from selected rectangle to preserve it in thumbnail
+            # Calculate thumbnail dimensions using helper method
             rect_width = abs(selected_rectangle.width())
             rect_height = abs(selected_rectangle.height())
+            thumbnail_width, thumbnail_height = self._calculate_thumbnail_dimensions(rect_width, rect_height)
+            
             aspect_ratio = rect_width / rect_height if rect_height > 0 else 1.0
-            
-            # Set thumbnail dimensions while preserving aspect ratio
-            max_thumbnail_width = 200
-            max_thumbnail_height = 150
-            
-            if aspect_ratio >= (max_thumbnail_width / max_thumbnail_height):
-                # Rectangle is wider, constrain by width
-                thumbnail_width = max_thumbnail_width
-                thumbnail_height = int(max_thumbnail_width / aspect_ratio)
-            else:
-                # Rectangle is taller, constrain by height
-                thumbnail_height = max_thumbnail_height
-                thumbnail_width = int(max_thumbnail_height * aspect_ratio)
-            
             logger.info(f"Rectangle dimensions: {rect_width:.1f}x{rect_height:.1f}, aspect ratio: {aspect_ratio:.3f}")
             logger.info(f"Thumbnail dimensions: {thumbnail_width}x{thumbnail_height}")
             
@@ -278,19 +404,13 @@ class MapRenderer:
             thumbnail_pixmap = QPixmap.fromImage(thumbnail_image)
             logger.info(f"Created thumbnail pixmap, size: {thumbnail_pixmap.width()}x{thumbnail_pixmap.height()}")
             
-            # Save thumbnail to temp directory for logging purposes
-            try:
-                thumbnail_path = os.path.join(tempfile.gettempdir(), "gemini_map_thumbnail.png")
-                thumbnail_pixmap.save(thumbnail_path, "PNG")
-                logger.info(f"Thumbnail saved to temp directory: {thumbnail_path}")
-            except Exception as e:
-                logger.warning(f"Failed to save thumbnail to temp directory: {str(e)}")
+            # Save thumbnail using helper method
+            self._save_thumbnail_to_temp(thumbnail_pixmap)
             
             return thumbnail_pixmap
             
         except Exception as e:
-            logger.error(f"Error in capture_map_thumbnail: {str(e)}")
-            return None
+            return self._handle_operation_error("_create_original_thumbnail", e)
 
     def capture_map_image(self, selected_rectangle):
         """Capture the selected area of the map as an image at fixed ground resolution
@@ -363,7 +483,7 @@ class MapRenderer:
         
         # Convert to QPixmap and save to file
         pixmap = QPixmap.fromImage(rendered_image)
-        image_path = os.path.join(tempfile.gettempdir(), "gemini_map_image.png")
+        image_path = os.path.join(tempfile.gettempdir(), self.TEMP_IMAGE_FILENAME)
         pixmap.save(image_path, "PNG")
         
         # Read the image and convert to base64
@@ -372,3 +492,121 @@ class MapRenderer:
         
         logger.info(f"Image captured successfully, size: {len(encoded_image)} characters")
         return encoded_image, map_extent, top_left_map, bottom_right_map, extent_width, extent_height
+
+    def debug_render_ai_results(self, ai_results, captured_image_path, plugin_directory):
+        """
+        Debug function to render AI results as yellow rectangles on the captured image.
+        
+        Args:
+            ai_results: List of AI detection results with bounding box coordinates
+            captured_image_path: Path to the original captured image
+            plugin_directory: Directory where to save the debug image
+            
+        Returns:
+            str: Path to the debug image file, or None if failed
+        """
+        try:
+            # Load the original captured image
+            if not os.path.exists(captured_image_path):
+                logger.error(f"Captured image not found: {captured_image_path}")
+                return None
+                
+            pixmap = QPixmap(captured_image_path)
+            if pixmap.isNull():
+                logger.error(f"Failed to load captured image: {captured_image_path}")
+                return None
+            
+            # Create a painter to draw on the image
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            
+            # Set up yellow pen for rectangles
+            yellow_pen = QPen(QColor(255, 255, 0, 255), 3)  # Yellow, 3px width
+            painter.setPen(yellow_pen)
+            
+            # Get image dimensions for coordinate conversion
+            image_width = pixmap.width()
+            image_height = pixmap.height()
+            logger.info(f"Debug image dimensions: {image_width}x{image_height}")
+            
+            # Draw rectangles for each AI result
+            rectangles_drawn = 0
+            for i, result in enumerate(ai_results):
+                if not isinstance(result, dict):
+                    logger.warning(f"Result {i+1} is not a dictionary: {type(result)}")
+                    continue
+                    
+                logger.info(f"Processing result {i+1}: {result}")
+                    
+                # Extract bounding box coordinates
+                bbox_coords = None
+                for bbox_field in ['bounding_box', 'Bounding Box']:
+                    if bbox_field in result:
+                        bbox_data = result[bbox_field]
+                        if isinstance(bbox_data, list) and len(bbox_data) >= 4:
+                            bbox_coords = tuple(bbox_data[:4])
+                            logger.info(f"Found bbox in {bbox_field}: {bbox_coords}")
+                            break
+                
+                # Alternative: look for separate coordinate fields
+                if not bbox_coords:
+                    coord_fields = ['x', 'y', 'width', 'height']
+                    if all(field in result for field in coord_fields):
+                        x, y, w, h = result['x'], result['y'], result['width'], result['height']
+                        bbox_coords = (x, y, x + w, y + h)
+                        logger.info(f"Found bbox from x,y,w,h: {bbox_coords}")
+                    else:
+                        # Try xmin, ymin, xmax, ymax format
+                        coord_fields = ['xmin', 'ymin', 'xmax', 'ymax']
+                        if all(field in result for field in coord_fields):
+                            bbox_coords = (result['xmin'], result['ymin'], result['xmax'], result['ymax'])
+                            logger.info(f"Found bbox from xmin,ymin,xmax,ymax: {bbox_coords}")
+                
+                if bbox_coords and len(bbox_coords) >= 4:
+                    x1, y1, x2, y2 = bbox_coords[:4]
+                    logger.info(f"Raw bbox coordinates: x1={x1}, y1={y1}, x2={x2}, y2={y2}")
+                    
+                    # debug
+                    #x1, y1, x2, y2 = 100, 100, 500, 500
+
+                    # Convert from 0-1000 range to image pixel coordinates
+                    # Assuming coordinates are in 0-1000 range (relative coordinates)
+                    left = (x1 / 1000.0) * image_width
+                    top = (y1 / 1000.0) * image_height
+                    right = (x2 / 1000.0) * image_width
+                    bottom = (y2 / 1000.0) * image_height
+                    
+                    # Ensure coordinates are in the correct order
+                    left = min(left, right)
+                    top = min(top, bottom)
+                    right = max(left, right)
+                    bottom = max(top, bottom)
+                    
+                    logger.info(f"Converted to image coordinates: left={left}, top={top}, right={right}, bottom={bottom}")
+                    
+                    # Convert to QRectF
+                    rect = QRectF(left, top, right - left, bottom - top)
+                    
+                    # Draw the rectangle
+                    painter.drawRect(rect)
+                    rectangles_drawn += 1
+                    logger.info(f"Drew rectangle {rectangles_drawn}: {rect}")
+                else:
+                    logger.warning(f"No valid bbox coordinates found for result {i+1}")
+            
+            painter.end()
+            
+            # Save the debug image
+            debug_filename = "debug_ai_results.png"
+            debug_path = os.path.join(plugin_directory, debug_filename)
+            
+            if pixmap.save(debug_path, "PNG"):
+                logger.info(f"Debug image saved successfully: {debug_path}")
+                logger.info(f"Drew {rectangles_drawn} yellow rectangles for AI results")
+                return debug_path
+            else:
+                logger.error(f"Failed to save debug image: {debug_path}")
+                return None
+                
+        except Exception as e:
+            return self._handle_operation_error("debug_render_ai_results", e)

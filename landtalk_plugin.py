@@ -883,7 +883,7 @@ class LandTalkPlugin:
         self.rubber_band.setSecondaryStrokeColor(QColor(0, 0, 0, 255))  # Black outline
         self.rubber_band.setLineStyle(Qt.PenStyle.SolidLine)
         
-        # Convert QPointF to map coordinates (using correct QPoint conversion)
+        # Convert screen coordinates to map coordinates using proper QGIS API
         mapToPixel = self.map_canvas.mapSettings().mapToPixel()
         topLeft = mapToPixel.toMapCoordinates(QPoint(int(rectangle.topLeft().x()), int(rectangle.topLeft().y())))
         topRight = mapToPixel.toMapCoordinates(QPoint(int(rectangle.topRight().x()), int(rectangle.topRight().y())))
@@ -909,18 +909,19 @@ class LandTalkPlugin:
         self.dock_widget.clear_thumbnail_display()
         # Ensure a fresh map image will be captured for the next chat
         self.captured_image_data = None
-        self.dock_widget.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. You can type a message (optional) and click 'Analyze' to analyze this image.")
+        self.dock_widget.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. CAUTION: resulting bounding boxes are currently not very precise.")
         
-        # Capture and display thumbnail immediately
-        thumbnail_pixmap = self.capture_map_thumbnail()
-        if thumbnail_pixmap and self.dock_widget:
-            self.dock_widget.update_thumbnail_display(thumbnail_pixmap)
-        
-        # Capture the high-resolution map image immediately after thumbnail
+        # Capture the high-resolution map image first (so thumbnail can be created from it)
         logger.info("Capturing high-resolution map image immediately after rectangle selection")
         captured_image = self.capture_map_image()
         if captured_image:
             logger.info("High-resolution map image captured successfully during rectangle selection")
+            
+            # Now capture and display thumbnail from the AI image for consistency
+            thumbnail_pixmap = self.capture_map_thumbnail()
+            if thumbnail_pixmap and self.dock_widget:
+                self.dock_widget.update_thumbnail_display(thumbnail_pixmap)
+            
             # Update the thumbnail info panel with the newly captured extent data
             if self.dock_widget:
                 self.dock_widget.update_thumbnail_info()
@@ -1395,6 +1396,10 @@ class LandTalkPlugin:
         if self.captured_map_extent:
             provider_name = ai_provider.upper() if ai_provider else "UNKNOWN"
             bbox_layer_name = f"Query Extent - {provider_name}"
+            
+            # Log the bounding box coordinates
+            bbox_coords = self.captured_map_extent
+            logger.info(f"Creating bounding box layer '{bbox_layer_name}' - Coordinates: MinX={bbox_coords.xMinimum()}, MaxX={bbox_coords.xMaximum()}, MinY={bbox_coords.yMinimum()}, MaxY={bbox_coords.yMaximum()}, Width={bbox_coords.width()}, Height={bbox_coords.height()}")
             
             # Create bbox feature first
             bbox_feature = QgsFeature()
@@ -1923,6 +1928,9 @@ class LandTalkPlugin:
                     level=Qgis.MessageLevel.Warning,
                     duration=8
                 )
+            
+            # Debug: Render AI results as yellow rectangles on captured image
+            self.debug_render_ai_results_on_image(items_to_process, ai_provider)
                 
         except Exception as e:
             logger.error(f"Error processing JSON data for layer creation: {str(e)}")
@@ -1941,6 +1949,52 @@ class LandTalkPlugin:
         except Exception as e:
             logger.warning(f"Error getting confidence threshold, using default {int(self.default_confidence_threshold)}%: {str(e)}")
             return self.default_confidence_threshold
+
+    def debug_render_ai_results_on_image(self, ai_results, ai_provider):
+        """
+        Debug function to render AI results as yellow rectangles on the captured image.
+        
+        Args:
+            ai_results: List of AI detection results with bounding box coordinates
+            ai_provider: String indicating the AI provider ('gemini' or 'gpt')
+        """
+        logger.info(f"Entering debug_render_ai_results_on_image with {len(ai_results) if ai_results else 0} AI results from {ai_provider}")
+        try:
+            # Check if we have captured image data
+            if not hasattr(self, 'captured_image_data') or not self.captured_image_data:
+                logger.info("No captured image data available for debug rendering")
+                return
+            
+            # Get the temp directory
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            
+            # Create a temporary file for the captured image
+            temp_image_path = os.path.join(temp_dir, "debug_captured_image.png")
+            
+            # Decode and save the base64 image data
+            import base64
+            with open(temp_image_path, "wb") as f:
+                f.write(base64.b64decode(self.captured_image_data))
+            
+            # Call the debug render function from MapRenderer
+            debug_path = self.map_renderer.debug_render_ai_results(ai_results, temp_image_path, temp_dir)
+            
+            if debug_path:
+                logger.info(f"Debug image created successfully: {debug_path}")
+            else:
+                logger.warning("Failed to create debug image")
+            
+            # Clean up temporary file
+            try:
+                os.remove(temp_image_path)
+            except Exception:
+                pass
+                
+        except Exception as e:
+            logger.error(f"Error in debug_render_ai_results_on_image: {str(e)}")
+        finally:
+            logger.info("Exiting debug_render_ai_results_on_image")
 
     def convert_to_map_coordinates(self, bbox_coords):
         """

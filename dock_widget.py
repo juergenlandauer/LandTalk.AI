@@ -52,121 +52,132 @@ from .logging import logger
 from .tutorial_dialog import TutorialDialog
 
 
+# Detect macOS for DPI scaling
+import platform
+IS_MACOS = platform.system() == 'Darwin'
+
+# Font size multiplier for macOS high-DPI displays
+FONT_SCALE = 1.4 if IS_MACOS else 1.0
+
+def scale_font(base_size):
+    """Scale font size based on platform"""
+    return f"{int(base_size * FONT_SCALE)}pt"
+
 # Style constants for consistent UI theming
 class UIStyles:
     """Centralized UI styles for consistent theming"""
     
     # Button styles
-    BUTTON_PRIMARY = """
-        QPushButton {
+    BUTTON_PRIMARY = f"""
+        QPushButton {{
             background-color: #4285F4;
             color: white;
             border-radius: 4px;
             padding: 8px 16px;
             font-weight: bold;
-            font-size: 9pt;
-        }
-        QPushButton:hover {
+            font-size: {scale_font(9)};
+        }}
+        QPushButton:hover {{
             background-color: #3367D6;
-        }
-        QPushButton:pressed {
+        }}
+        QPushButton:pressed {{
             background-color: #2E5AB8;
-        }
-        QPushButton:disabled {
+        }}
+        QPushButton:disabled {{
             background-color: #cccccc;
             color: #666666;
-        }
+        }}
     """
     
-    BUTTON_SECONDARY = """
-        QPushButton {
+    BUTTON_SECONDARY = f"""
+        QPushButton {{
             background-color: #dee2e6;
             color: #666;
             border: 2px solid #dee2e6;
             border-radius: 4px;
             padding: 4px 8px;
             font-weight: bold;
-            font-size: 10pt;
-        }
-        QPushButton:hover {
+            font-size: {scale_font(10)};
+        }}
+        QPushButton:hover {{
             background-color: #d1d5db;
             border-color: #d1d5db;
-        }
-        QPushButton:pressed {
+        }}
+        QPushButton:pressed {{
             background-color: #c4c9d0;
             border-color: #c4c9d0;
-        }
+        }}
     """
     
-    BUTTON_SMALL = """
-        QPushButton {
+    BUTTON_SMALL = f"""
+        QPushButton {{
             background-color: #6c757d;
             color: white;
             border-radius: 4px;
             padding: 4px 8px;
             font-weight: bold;
-            font-size: 8pt;
+            font-size: {scale_font(8)};
             margin: 2px;
-        }
-        QPushButton:hover {
+        }}
+        QPushButton:hover {{
             background-color: #5a6268;
-        }
-        QPushButton:pressed {
+        }}
+        QPushButton:pressed {{
             background-color: #545b62;
-        }
+        }}
     """
     
     # Input field styles
-    COMBO_BOX = """
-        QComboBox {
+    COMBO_BOX = f"""
+        QComboBox {{
             border: 2px solid #dee2e6;
             border-radius: 4px;
             padding: 4px 4px;
-            font-size: 8pt;
+            font-size: {scale_font(8)};
             min-width: 60px;
             max-width: 120px;
             margin-left: 0;
             height: 25px;
-        }
-        QComboBox:focus {
+        }}
+        QComboBox:focus {{
             border-color: #4285F4;
-        }
-        QComboBox QAbstractItemView {
+        }}
+        QComboBox QAbstractItemView {{
             min-width: 180px;
-        }
+        }}
     """
     
-    LINE_EDIT = """
-        QLineEdit {
+    LINE_EDIT = f"""
+        QLineEdit {{
             border: 2px solid #dee2e6;
             border-radius: 4px;
             padding: 4px 4px;
-            font-size: 8pt;
+            font-size: {scale_font(8)};
             margin-left: 0;
             text-align: right;
-        }
-        QLineEdit:focus {
+        }}
+        QLineEdit:focus {{
             border-color: #4285F4;
-        }
+        }}
     """
     
-    TEXT_EDIT = """
-        QTextEdit {
+    TEXT_EDIT = f"""
+        QTextEdit {{
             border: 2px solid #dee2e6;
             border-radius: 4px;
             padding: 8px;
-            font-size: 9pt;
+            font-size: {scale_font(9)};
             background-color: white;
-        }
-        QTextEdit:focus {
+        }}
+        QTextEdit:focus {{
             border-color: #4285F4;
-        }
+        }}
     """
     
     # Label styles
-    LABEL_SMALL = "font-size: 8pt; font-weight: bold; color: #666;"
-    LABEL_VALUE = "font-size: 8pt; color: #333;"
-    LABEL_INPUT = "color: #666; font-size: 9pt;"
+    LABEL_SMALL = f"font-size: {scale_font(8)}; font-weight: bold; color: #666;"
+    LABEL_VALUE = f"font-size: {scale_font(8)}; color: #333;"
+    LABEL_INPUT = f"color: #666; font-size: {scale_font(9)};"
     
     # Panel styles
     INFO_PANEL = """
@@ -374,107 +385,105 @@ class LandTalkDockWidget(QDockWidget):
         self.prefs_button.setMinimumWidth(80)
         self.prefs_button.setMaximumHeight(25)
         self.prefs_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.prefs_button.setStyleSheet("""
-            QPushButton {
+        self.prefs_button.setStyleSheet(f"""
+            QPushButton {{
                 background-color: #6c757d;
                 color: white;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-weight: bold;
-                font-size: 8pt;
+                font-size: {scale_font(8)};
                 margin-right: 6px;
                 margin-left: 0;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #5a6268;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: #545b62;
-            }
+            }}
         """)
         self.prefs_button.setToolTip("Options")
         self.prefs_button.setMenu(self.settings_menu)
         
         # Note: Options button will be added to the bottom button layout instead
         
-        # Add AI model selection dropdown to menu bar
+        # Add AI model selection label and dropdown 
+        self.ai_model_label = QLabel("AI Model:")
+        self.ai_model_label.setStyleSheet(f"""
+            QLabel {{
+                color: #666;
+                font-size: {scale_font(9)};
+                margin-left: 4px;
+                margin-right: 2px;
+                padding: 2px 0px;
+            }}
+        """)
         
         self.ai_model_combo = QComboBox()
         self.ai_model_combo.addItem("gemini-2.0-flash", "gemini-2.0-flash")
         self.ai_model_combo.addItem("gemini-2.5-flash-lite", "gemini-2.5-flash-lite")
         self.ai_model_combo.addItem("gemini-2.5-pro", "gemini-2.5-pro")
         self.ai_model_combo.addItem("gemini-2.5-flash (recommended)", "gemini-2.5-flash")
-        self.ai_model_combo.addItem("gpt5-mini (recommended)", "gpt5-mini")
-        self.ai_model_combo.addItem("gpt5", "gpt5")
+        self.ai_model_combo.addItem("gpt-5-mini (recommended)", "gpt5-mini")
+        self.ai_model_combo.addItem("gpt-5-nano", "gpt-5-nano")
+        self.ai_model_combo.addItem("gpt-5", "gpt5")
         self.ai_model_combo.addItem("gpt-4o-mini", "gpt-4o-mini")
         self.ai_model_combo.setCurrentIndex(3)  # Default to gemini-2.5-flash
-        self.ai_model_combo.setStyleSheet("""
-            QComboBox {
+        self.ai_model_combo.setStyleSheet(f"""
+            QComboBox {{
                 border: 2px solid #dee2e6;
                 border-radius: 4px;
                 padding: 4px 4px;
-                font-size: 8pt;
-                min-width: 60px;
-                max-width: 96px;
-                margin-left: 0;
-                height: 20px;
-                min-height: 20px;
-                max-height: 20px;
-                margin-bottom: 3px;
-            }
-            QComboBox:focus {
+                font-size: {scale_font(9)};
+                min-width: 140px;
+                max-width: 220px;
+            }}
+            QComboBox:focus {{
                 border-color: #4285F4;
-            }
-            QComboBox QAbstractItemView {
-                min-width: 180px;
-            }
+            }}
+            QComboBox QAbstractItemView {{
+                min-width: 220px;
+                font-size: {scale_font(9)};
+            }}
         """)
         self.ai_model_combo.setToolTip("Select the AI model to use for analysis")
 
         
         # Add probability input field
-        self.prob_label = QLabel("Min. confidence (%):")
-        self.prob_label.setStyleSheet("""
-            QLabel {
+        self.prob_label = QLabel("Conf. (%):")
+        self.prob_label.setStyleSheet(f"""
+            QLabel {{
                 color: #666;
-                font-size: 8pt;
+                font-size: {scale_font(9)};
                 margin-left: 4px;
-                margin-right: 0px;
+                margin-right: 2px;
                 padding: 2px 0px;
-                height: 20px;
-                min-height: 20px;
-                max-height: 20px;
-                margin-bottom: 3px;
-            }
+            }}
         """)
         self.prob_label.setToolTip("Filter for features with confidence greater than this value (0-100)")
         
         self.prob_input = QLineEdit()
         self.prob_input.setText("0")
-        self.prob_input.setMaximumWidth(36)
-        self.prob_input.setMaximumHeight(20)
+        self.prob_input.setMaximumWidth(50)
         self.prob_input.setToolTip("Filter for features with confidence greater than this value (0-100)")
         
         # Set up integer validator for 0-99 range
         prob_validator = QIntValidator(0, 99)
         self.prob_input.setValidator(prob_validator)
         
-        self.prob_input.setStyleSheet("""
-            QLineEdit {
+        self.prob_input.setStyleSheet(f"""
+            QLineEdit {{
                 border: 2px solid #dee2e6;
                 border-radius: 4px;
                 padding: 4px 4px;
-                font-size: 8pt;
+                font-size: {scale_font(9)};
                 margin-left: 0;
                 text-align: right;
-                height: 20px;
-                min-height: 20px;
-                max-height: 20px;
-                margin-bottom: 3px;
-            }
-            QLineEdit:focus {
+            }}
+            QLineEdit:focus {{
                 border-color: #4285F4;
-            }
+            }}
         """)
         
         # Add rules button
@@ -483,23 +492,23 @@ class LandTalkDockWidget(QDockWidget):
         self.rules_button.setMaximumHeight(25)
         self.rules_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.rules_button.setToolTip("Edit chat rules")
-        self.rules_button.setStyleSheet("""
-            QPushButton {
+        self.rules_button.setStyleSheet(f"""
+            QPushButton {{
                 background-color: #6c757d;
                 color: white;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-weight: bold;
-                font-size: 8pt;
+                font-size: {scale_font(8)};
                 margin-right: 6px;
                 margin-left: 0;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #5a6268;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: #545b62;
-            }
+            }}
         """)
         self.rules_button.clicked.connect(lambda: self.parent_plugin.edit_system_prompt() if self.parent_plugin else None)
         
@@ -509,41 +518,53 @@ class LandTalkDockWidget(QDockWidget):
         self.tutorial_button.setMaximumHeight(25)
         self.tutorial_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.tutorial_button.setToolTip("Show tutorial")
-        self.tutorial_button.setStyleSheet("""
-            QPushButton {
+        self.tutorial_button.setStyleSheet(f"""
+            QPushButton {{
                 background-color: #6c757d;
                 color: white;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-weight: bold;
-                font-size: 8pt;
+                font-size: {scale_font(8)};
                 margin-right: 6px;
                 margin-left: 0;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #5a6268;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: #545b62;
-            }
+            }}
         """)
         self.tutorial_button.clicked.connect(self.show_tutorial)
         
         
-        # Create a widget to hold the controls and add them to menu bar
+        # Add menu bar to layout (without corner widgets for macOS compatibility)
+        layout.setMenuBar(self.menu_bar)
+        
+        # Create a dedicated controls row for AI model and confidence settings
+        # This works better on macOS than menu bar corner widgets
         controls_widget = QWidget()
         controls_layout = QHBoxLayout(controls_widget)
-        controls_layout.setContentsMargins(0, 0, 0, 0)
-        controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        controls_layout.setContentsMargins(8, 4, 8, 4)
+        controls_layout.setSpacing(8)
+        
+        # Add AI model selection
+        controls_layout.addWidget(self.ai_model_label)
         controls_layout.addWidget(self.ai_model_combo)
+        
+        # Add spacer
+        controls_layout.addStretch()
+        
+        # Add confidence threshold controls
         controls_layout.addWidget(self.prob_label)
         controls_layout.addWidget(self.prob_input)
         
-        # Add the controls widget to the left corner of the menu bar
-        self.menu_bar.setCornerWidget(controls_widget, Qt.Corner.TopLeftCorner if hasattr(Qt, 'Corner') else 1)
-              
-        # Add menu bar to layout
-        layout.setMenuBar(self.menu_bar)
+        # Set size policy for controls widget
+        controls_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        
+        # Add controls widget to main layout
+        layout.addWidget(controls_widget)
         
         # Add area selection section between menu and chat
         self.area_selection_widget = QWidget()
@@ -553,26 +574,26 @@ class LandTalkDockWidget(QDockWidget):
         # Select Area button
         self.select_area_button = QPushButton("Select area")
         self.select_area_button.setMinimumHeight(28)
-        self.select_area_button.setStyleSheet("""
-            QPushButton {
+        self.select_area_button.setStyleSheet(f"""
+            QPushButton {{
                 background-color: #4285F4;
                 color: white;
                 border: none;
                 border-radius: 4px;
                 padding: 6px 12px;
-                font-size: 10pt;
+                font-size: {scale_font(11)};
                 font-weight: bold;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #5294FF;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: #3A76D8;
-            }
-            QPushButton:disabled {
+            }}
+            QPushButton:disabled {{
                 background-color: #6c757d;
                 color: #dee2e6;
-            }
+            }}
         """)
         self.select_area_button.clicked.connect(self.on_select_area_clicked)
         area_selection_layout.addWidget(self.select_area_button)
@@ -630,7 +651,7 @@ class LandTalkDockWidget(QDockWidget):
         
         # Ground resolution dropdown
         self.resolution_label = QLabel("Resolution:")
-        self.resolution_label.setStyleSheet("font-size: 8pt; font-weight: bold; color: #666;")
+        self.resolution_label.setStyleSheet(f"font-size: {scale_font(9)}; font-weight: bold; color: #666;")
         
         # Create resolution dropdown
         self.resolution_combo = QComboBox()
@@ -641,28 +662,25 @@ class LandTalkDockWidget(QDockWidget):
         self.resolution_combo.addItem("10.0 m/px", 10.0)
         self.resolution_combo.addItem("100.0 m/px", 100.0)
         self.resolution_combo.setCurrentIndex(2)  # Default to 1.0 m/px
-        self.resolution_combo.setStyleSheet("""
-            QComboBox {
+        self.resolution_combo.setStyleSheet(f"""
+            QComboBox {{
                 border: 2px solid #dee2e6;
                 border-radius: 4px;
                 padding: 4px 8px;
-                font-size: 8pt;
+                font-size: {scale_font(9)};
                 background-color: white;
                 color: #333;
                 min-width: 80px;
                 max-width: 120px;
-                height: 23px;
-                min-height: 23px;
-                max-height: 23px;
-            }
-            QComboBox:focus {
+            }}
+            QComboBox:focus {{
                 border-color: #4285F4;
-            }
-            QComboBox:hover {
+            }}
+            QComboBox:hover {{
                 border-color: #4285F4;
-            }
-            QComboBox QAbstractItemView {
-                font-size: 8pt;
+            }}
+            QComboBox QAbstractItemView {{
+                font-size: {scale_font(9)};
                 min-width: 100px;
                 background-color: white;
                 border: 2px solid #dee2e6;
@@ -670,41 +688,41 @@ class LandTalkDockWidget(QDockWidget):
                 selection-background-color: #4285F4;
                 selection-color: white;
                 outline: none;
-            }
-            QComboBox QAbstractItemView::item {
+            }}
+            QComboBox QAbstractItemView::item {{
                 padding: 6px 12px;
                 background-color: white;
                 color: #333;
                 min-height: 20px;
                 border: none;
-            }
-            QComboBox QAbstractItemView::item:hover {
+            }}
+            QComboBox QAbstractItemView::item:hover {{
                 background-color: #f8f9fa;
                 color: #333;
-            }
-            QComboBox QAbstractItemView::item:selected {
+            }}
+            QComboBox QAbstractItemView::item:selected {{
                 background-color: #4285F4;
                 color: white;
-            }
-            QComboBox QAbstractItemView::item:selected:hover {
+            }}
+            QComboBox QAbstractItemView::item:selected:hover {{
                 background-color: #4285F4;
                 color: white;
-            }
+            }}
         """)
         self.resolution_combo.setToolTip("Select ground resolution for dimension calculations")
         self.resolution_combo.currentIndexChanged.connect(self.on_resolution_changed)
         
         # Width dimension label
         self.width_label = QLabel("Width:")
-        self.width_label.setStyleSheet("font-size: 8pt; font-weight: bold; color: #666;")
+        self.width_label.setStyleSheet(f"font-size: {scale_font(9)}; font-weight: bold; color: #666;")
         self.width_value = QLabel("0 m")
-        self.width_value.setStyleSheet("font-size: 8pt; color: #333;")
+        self.width_value.setStyleSheet(f"font-size: {scale_font(9)}; color: #333;")
         
         # Height dimension label
         self.height_label = QLabel("Height:")
-        self.height_label.setStyleSheet("font-size: 8pt; font-weight: bold; color: #666;")
+        self.height_label.setStyleSheet(f"font-size: {scale_font(9)}; font-weight: bold; color: #666;")
         self.height_value = QLabel("0 m")
-        self.height_value.setStyleSheet("font-size: 8pt; color: #333;")
+        self.height_value.setStyleSheet(f"font-size: {scale_font(9)}; color: #333;")
         
         # Add labels to info layout
         info_layout.addWidget(self.resolution_label)
@@ -745,20 +763,20 @@ class LandTalkDockWidget(QDockWidget):
         # when content is genuinely too wide (like wide tables or code blocks)
         self.chat_display.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth if hasattr(QTextEdit, 'LineWrapMode') else 1)
         
-        self.chat_display.setStyleSheet("""
-            QTextEdit {
+        self.chat_display.setStyleSheet(f"""
+            QTextEdit {{
                 background-color: #f8f9fa;
                 border: 1px solid #dee2e6;
                 border-radius: 4px;
                 padding: 8px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 10pt;
-            }
+                font-size: {scale_font(11)};
+            }}
         """)
         layout.addWidget(self.chat_display)
         
         # Add initial welcome message
-        self.add_system_message("Welcome! Click 'Select area' above to choose a map area, then start a conversation with AI about it. You can add a message and click 'Analyze' to analyze this image.")
+        self.add_system_message("Welcome! Click 'Select area' above to choose a map area.")
         
         # Input section at the bottom
         input_section = QVBoxLayout()
@@ -771,7 +789,7 @@ class LandTalkDockWidget(QDockWidget):
         
         # User input area
         input_label = QLabel("Your message (optional):")
-        input_label.setStyleSheet("color: #666; font-size: 9pt;")
+        input_label.setStyleSheet(f"color: #666; font-size: {scale_font(10)};")
         # Ensure label has fixed size
         input_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         input_section.addWidget(input_label)
@@ -787,16 +805,16 @@ class LandTalkDockWidget(QDockWidget):
         # Set expanding size policy for input text area
         self.prompt_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
-        self.prompt_text.setStyleSheet("""
-            QTextEdit {
+        self.prompt_text.setStyleSheet(f"""
+            QTextEdit {{
                 border: 2px solid #dee2e6;
                 border-radius: 4px;
                 padding: 6px;
-                font-size: 10pt;
-            }
-            QTextEdit:focus {
+                font-size: {scale_font(11)};
+            }}
+            QTextEdit:focus {{
                 border-color: #4285F4;
-            }
+            }}
         """)
         
         # Create and style the send button
@@ -805,21 +823,21 @@ class LandTalkDockWidget(QDockWidget):
         self.send_button.setMaximumWidth(60)  # Set maximum width to match minimum
         self.send_button.setMaximumHeight(50)  # Match the text input height
         self.send_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.send_button.setStyleSheet("""
-            QPushButton {
+        self.send_button.setStyleSheet(f"""
+            QPushButton {{
                 background-color: #4285F4;
                 color: white;
                 border-radius: 4px;
                 padding: 4px 4px;
                 font-weight: bold;
-                font-size: 8pt;
-            }
-            QPushButton:hover {
+                font-size: {scale_font(9)};
+            }}
+            QPushButton:hover {{
                 background-color: #5294FF;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: #3A76D8;
-            }
+            }}
         """)
         self.send_button.clicked.connect(self.send_message_to_selected_ai)
         
@@ -1486,15 +1504,16 @@ class LandTalkDockWidget(QDockWidget):
             
             logger.info("Re-capturing image with new resolution")
             
-            # Capture new thumbnail with updated resolution
-            thumbnail_pixmap = self.parent_plugin.capture_map_thumbnail()
-            if thumbnail_pixmap:
-                self.update_thumbnail_display(thumbnail_pixmap)
-            
-            # Capture new high-resolution image with updated resolution
+            # Capture new high-resolution image with updated resolution first
             captured_image = self.parent_plugin.capture_map_image()
             if captured_image:
                 logger.info("High-resolution image re-captured successfully with new resolution")
+                
+                # Now capture new thumbnail from the AI image for consistency
+                thumbnail_pixmap = self.parent_plugin.capture_map_thumbnail()
+                if thumbnail_pixmap:
+                    self.update_thumbnail_display(thumbnail_pixmap)
+                
                 # Update the thumbnail info panel with the newly captured extent data
                 self.update_thumbnail_info()
             else:

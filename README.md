@@ -22,9 +22,23 @@
 - Python packages (install in QGIS Python environment):
   - `requests>=2.25.0` (for API calls)
 
+## Network Configuration
+
+The plugin automatically respects QGIS proxy settings configured in **Settings** > **Options** > **Network**. If you're behind a corporate firewall or using a proxy server, make sure to configure your proxy settings in QGIS before using the plugin.
+
 ## Installation
 
-### Method 1: Install from ZIP file (Recommended)
+### Method 1: Install from QGIS Plugin Repository (Easiest)
+
+1. Open QGIS
+2. Go to **Plugins** > **Manage and Install Plugins**
+3. Click on the **All** tab
+4. In the search box, type "LandTalk.AI"
+5. Find the LandTalk.AI plugin in the search results
+6. Click **Install Plugin**
+7. The plugin will be automatically downloaded, installed, and enabled
+
+### Method 2: Install from ZIP file (Alternative)
 
 1. Download the latest release ZIP file from the [releases page](https://github.com/juergenlandauer/LandTalk.AI/releases)
 2. Open QGIS
@@ -34,7 +48,7 @@
 6. Click **Install Plugin**
 7. The plugin will be automatically installed and enabled
 
-### Method 2: Manual Installation
+### Method 3: Manual Installation
 
 1. Download the plugin source code
 2. Install required Python packages in your QGIS Python environment:

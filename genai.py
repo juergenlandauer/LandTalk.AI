@@ -28,9 +28,9 @@
 
 import base64
 import json
-import requests
 import threading
 from .logging import logger
+from .simple_network_handler import SimpleNetworkHandler, NetworkError, TimeoutError
 
 class GenAIHandler:
     """Handler for GenAI API interactions (Gemini and GPT)"""
@@ -42,6 +42,7 @@ class GenAIHandler:
         self.api_timeout = api_timeout
         self.interrupt_flag = threading.Event()
         self.current_request = None
+        self.network_handler = SimpleNetworkHandler(timeout=api_timeout)
     
     def _initialize_interrupt_support(self):
         """Initialize interrupt support attributes (for backward compatibility)"""
@@ -57,13 +58,9 @@ class GenAIHandler:
         
         logger.info("Request interruption requested by user")
         self.interrupt_flag.set()
-        if self.current_request:
-            try:
-                # This will cause the request to be cancelled
-                self.current_request.close()
-                logger.info("Current request connection closed")
-            except Exception as e:
-                logger.info(f"Error closing request connection: {e}")
+        # Note: QgsBlockingNetworkRequest doesn't support cancellation during execution
+        # The interruption will be checked after the request completes
+        logger.info("Interrupt flag set - request will be cancelled when checked")
     
     def reset_interrupt(self):
         """Reset the interrupt flag for new requests"""
@@ -72,7 +69,6 @@ class GenAIHandler:
             self._initialize_interrupt_support()
         
         self.interrupt_flag.clear()
-        self.current_request = None
     
     def analyze_with_ai(self, prompt_text, chat_context, model, api_key, image_data=None, system_prompt=None):
         """Unified method to send message to AI API (Gemini or GPT) and return results"""
@@ -99,76 +95,67 @@ class GenAIHandler:
             return {"success": False, "error": f"Please set your {provider_name} API key first.", "error_type": "api_key_required"}
         
         try:
-            try:
-                logger.info(f"Making API call with provider: {provider} and model: {model}")
-                logger.info(f"Image data length: {len(image_data) if image_data else 'None'}")
-                logger.info(f"Prompt text: {prompt_text}")
-                logger.info(f"Chat history length: {len(chat_context) if chat_context else 'None'}")
-                
-                # Use the provided chat context
-                chat_history = chat_context
-                
-                # Prepare provider-specific request data
-                if provider == "gemini":
-                    headers, url, payload = self._prepare_gemini_request(image_data, prompt_text, chat_history, model, system_prompt, api_key)
-                elif provider == "gpt":
-                    headers, url, payload = self._prepare_gpt_request(image_data, prompt_text, chat_history, model, system_prompt, api_key)
+            logger.info(f"Making API call with provider: {provider} and model: {model}")
+            logger.info(f"Image data length: {len(image_data) if image_data else 'None'}")
+            logger.info(f"Prompt text: {prompt_text}")
+            logger.info(f"Chat history length: {len(chat_context) if chat_context else 'None'}")
+            
+            # Use the provided chat context
+            chat_history = chat_context
+            
+            # Prepare provider-specific request data
+            if provider == "gemini":
+                headers, url, payload = self._prepare_gemini_request(image_data, prompt_text, chat_history, model, system_prompt, api_key)
+            elif provider == "gpt":
+                headers, url, payload = self._prepare_gpt_request(image_data, prompt_text, chat_history, model, system_prompt, api_key)
 
-                # Make the API call with configurable timeout and interruption support
-                logger.info(f"Making API call to {provider.upper()}")
+            # Make the API call with configurable timeout and interruption support
+            logger.info(f"Making API call to {provider.upper()}")
+            
+            # Check for interruption before making the request
+            # Ensure interrupt attributes exist (for backward compatibility)
+            if not hasattr(self, 'interrupt_flag'):
+                self._initialize_interrupt_support()
+            
+            if self.interrupt_flag.is_set():
+                logger.info("Request interrupted before API call")
+                return {"success": False, "error": "Request interrupted by user", "error_type": "interrupted"}
+            
+            # Use QGIS network handler for proxy support
+            try:
+                network_response = self.network_handler.post_json(url, headers, payload)
                 
-                # Check for interruption before making the request
-                # Ensure interrupt attributes exist (for backward compatibility)
-                if not hasattr(self, 'interrupt_flag'):
-                    self._initialize_interrupt_support()
-                
+                # Check for interruption after the request
                 if self.interrupt_flag.is_set():
-                    logger.info("Request interrupted before API call")
+                    logger.info("Request interrupted after API call")
                     return {"success": False, "error": "Request interrupted by user", "error_type": "interrupted"}
                 
-                # Create a session for the request so we can close it if needed
-                session = requests.Session()
-                self.current_request = session
+                if not network_response['success']:
+                    raise NetworkError(network_response.get('error', 'Unknown network error'))
                 
-                try:
-                    response = session.post(url, headers=headers, json=payload, timeout=self.api_timeout)
-                    
-                    # Check for interruption after the request
-                    if self.interrupt_flag.is_set():
-                        logger.info("Request interrupted after API call")
-                        return {"success": False, "error": "Request interrupted by user", "error_type": "interrupted"}
-                    
-                    response_json = response.json()
-                    logger.info(f"API response: {response_json}")
-                finally:
-                    # Clean up the session
-                    session.close()
-                    self.current_request = None
-                
-                # Parse provider-specific response
-                if provider == "gemini":
-                    parsed_response = self._parse_gemini_response(response_json)
-                    logger.info(f"Gemini parsed response: {parsed_response}")
-                elif provider == "gpt":
-                    parsed_response = self._parse_gpt_response(response_json)
-                    logger.info(f"GPT parsed response: {parsed_response}")
-                
-                response = parsed_response
-                
-            except requests.exceptions.Timeout:
+                response_json = network_response['data']
+                logger.info(f"API response: {response_json}")
+            except NetworkError as e:
+                logger.error(f"Network error occurred while calling {provider.upper()} API: {str(e)}")
+                return {"success": False, "error": f"Network error occurred while calling {provider.upper()} API: {str(e)}", "error_type": "network_error"}
+            except TimeoutError as e:
                 # Check if this was actually an interruption
                 if self.interrupt_flag.is_set():
                     logger.info("Request interrupted by user (timeout)")
                     return {"success": False, "error": "Request interrupted by user", "error_type": "interrupted"}
                 logger.warning(f"API request to {provider.upper()} timed out after {self.api_timeout} seconds")
                 return {"success": False, "error": f"Request to {provider.upper()} API timed out after {self.api_timeout} seconds. Please try again.", "error_type": "timeout"}
-            except requests.exceptions.RequestException as e:
-                # Check if this was actually an interruption
-                if self.interrupt_flag.is_set():
-                    logger.info("Request interrupted by user (network error)")
-                    return {"success": False, "error": "Request interrupted by user", "error_type": "interrupted"}
-                logger.error(f"Network error occurred while calling {provider.upper()} API: {str(e)}")
-                return {"success": False, "error": f"Network error occurred while calling {provider.upper()} API: {str(e)}", "error_type": "network_error"}
+            
+            # Parse provider-specific response
+            if provider == "gemini":
+                parsed_response = self._parse_gemini_response(response_json)
+                logger.info(f"Gemini parsed response: {parsed_response}")
+            elif provider == "gpt":
+                parsed_response = self._parse_gpt_response(response_json)
+                logger.info(f"GPT parsed response: {parsed_response}")
+            
+            response = parsed_response
+                
 
             if 'error' in response:
                 error_message = response.get('error', {}).get('message', "Unknown error")
@@ -270,6 +257,7 @@ class GenAIHandler:
                 "topK": 32,
                 "topP": 1,
                 "maxOutputTokens": 4096,
+#                "thinkingBudget": 0, # does not work
             }
         }
         
