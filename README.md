@@ -4,7 +4,7 @@
 
  A QGIS plugin that allows users to analyze map areas using ChatGPT or Google's Gemini multimodal AI.
 
- This work is based on our research published in MDPI Geomatics 2025: "Visual Foundation Models for Archaeological Remote Sensing: A Zero-Shot Approach" by Juergen Landauer and Sarah Klassen. (preprint available at https://www.preprints.org/manuscript/202508.0379/v1)
+ This work is based on our research published in MDPI Geomatics 2025: "Visual Foundation Models for Archaeological Remote Sensing: A Zero-Shot Approach" by Juergen Landauer and Sarah Klassen (available at https://doi.org/10.3390/geomatics5040052))
 
 ## Workflow
 
@@ -85,5 +85,6 @@ The plugin automatically respects QGIS proxy settings configured in **Settings**
  ## Support
 
  For issues or feature requests, please contact the developer.
+
 
 
