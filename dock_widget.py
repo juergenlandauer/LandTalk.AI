@@ -213,7 +213,7 @@ class ImagePopupDialog(QDialog):
         
         # Create layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(2, 2, 2, 2)
         
         # Create scroll area for the image
         self.scroll_area = QScrollArea()
@@ -352,14 +352,19 @@ class LandTalkDockWidget(QDockWidget):
         self.setWidget(self.main_widget)
         
         layout = QVBoxLayout(self.main_widget)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(2, 2, 2, 2)
         
         self.parent_plugin = None  # Will be set by the plugin
         self.chat_history = []  # Store chat conversation history
         self.last_selected_resolution_index = 2  # Default to 1.0 m/px (index 2)
         
-        # Create a menu bar
+        # Create a menu bar - but hide it on macOS to prevent conflicts with QGIS main menu
         self.menu_bar = QMenuBar(self.main_widget)
+        
+        # Hide menu bar on macOS to prevent interference with QGIS main menu bar
+        if IS_MACOS:
+            self.menu_bar.setVisible(False)
+            logger.info("Menu bar hidden on macOS to prevent QGIS menu bar conflicts")
         
         # Create options menu
         self.settings_menu = QMenu("Options", self.menu_bar)
@@ -539,14 +544,17 @@ class LandTalkDockWidget(QDockWidget):
         self.tutorial_button.clicked.connect(self.show_tutorial)
         
         
-        # Add menu bar to layout (without corner widgets for macOS compatibility)
-        layout.setMenuBar(self.menu_bar)
+        # Add menu bar to layout only on non-macOS systems to prevent QGIS menu bar conflicts
+        if not IS_MACOS:
+            layout.setMenuBar(self.menu_bar)
+        else:
+            logger.info("Skipping menu bar layout on macOS to prevent QGIS menu bar conflicts")
         
         # Create a dedicated controls row for AI model and confidence settings
         # This works better on macOS than menu bar corner widgets
         controls_widget = QWidget()
         controls_layout = QHBoxLayout(controls_widget)
-        controls_layout.setContentsMargins(8, 4, 8, 4)
+        controls_layout.setContentsMargins(2, 2, 2, 2)
         controls_layout.setSpacing(8)
         
         # Add AI model selection
@@ -569,7 +577,7 @@ class LandTalkDockWidget(QDockWidget):
         # Add area selection section between menu and chat
         self.area_selection_widget = QWidget()
         area_selection_layout = QVBoxLayout(self.area_selection_widget)
-        area_selection_layout.setContentsMargins(8, 8, 8, 8)
+        area_selection_layout.setContentsMargins(8, 2, 8, 2)
         
         # Select Area button
         self.select_area_button = QPushButton("Select area")
@@ -602,7 +610,7 @@ class LandTalkDockWidget(QDockWidget):
         self.thumbnail_widget = QWidget()
         self.thumbnail_widget.setVisible(False)
         thumbnail_layout = QVBoxLayout(self.thumbnail_widget)
-        thumbnail_layout.setContentsMargins(0, 8, 0, 0)
+        thumbnail_layout.setContentsMargins(2, 2, 2, 2)
         
         # Create horizontal layout for image and info panel
         thumbnail_horizontal_layout = QHBoxLayout()
@@ -646,7 +654,7 @@ class LandTalkDockWidget(QDockWidget):
         self.thumbnail_info_panel.setFixedWidth(120)
         
         info_layout = QVBoxLayout(self.thumbnail_info_panel)
-        info_layout.setContentsMargins(4, 4, 4, 4)
+        info_layout.setContentsMargins(2, 2, 2, 2)
         info_layout.setSpacing(2)
         
         # Ground resolution dropdown
@@ -658,8 +666,10 @@ class LandTalkDockWidget(QDockWidget):
         self.resolution_combo.addItem("0.25 m/px", 0.25)
         self.resolution_combo.addItem("0.5 m/px", 0.5)
         self.resolution_combo.addItem("1.0 m/px", 1.0)
+        self.resolution_combo.addItem("2.0 m/px", 2.0)
         self.resolution_combo.addItem("5.0 m/px", 5.0)
         self.resolution_combo.addItem("10.0 m/px", 10.0)
+        self.resolution_combo.addItem("20.0 m/px", 20.0)
         self.resolution_combo.addItem("100.0 m/px", 100.0)
         self.resolution_combo.setCurrentIndex(2)  # Default to 1.0 m/px
         self.resolution_combo.setStyleSheet(f"""
@@ -1530,7 +1540,7 @@ class LandTalkDockWidget(QDockWidget):
     
     def adjust_chat_display_height(self):
         """Adjust chat display height to ensure it uses maximum available space"""
-        if not (self.chat_display and self.input_section_widget and self.menu_bar):
+        if not (self.chat_display and self.input_section_widget):
             return
             
         try:
@@ -1539,10 +1549,15 @@ class LandTalkDockWidget(QDockWidget):
             QApplication.processEvents()
             
             # Get actual heights of fixed elements
-            menu_bar_height = self.menu_bar.sizeHint().height() if self.menu_bar.isVisible() else 0
+            # On macOS, menu bar is hidden so its height should be 0
+            if IS_MACOS or not self.menu_bar.isVisible():
+                menu_bar_height = 0
+            else:
+                menu_bar_height = self.menu_bar.sizeHint().height()
+            
             input_section_height = self.input_section_widget.sizeHint().height()
             
-            logger.debug(f"Layout update - Menu bar: {menu_bar_height}px, Input section: {input_section_height}px")
+            logger.debug(f"Layout update - Menu bar: {menu_bar_height}px, Input section: {input_section_height}px (macOS: {IS_MACOS})")
             
             # The chat display will automatically expand to fill remaining space
             # due to its Expanding size policy, no manual height setting needed

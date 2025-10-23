@@ -2,7 +2,7 @@
  name=LandTalk.AI
  qgisMinimumVersion=3.26
  description="LandTalk.AI - Your Landscape Talks With You using AI: Analyze map areas using Google Gemini or ChatGPT multimodal AI.
- version=1.0.1
+ version=1.0.2
  author=Juergen Landauer
  email=juergen@landauer-ai.de
  license=GPL-3.0

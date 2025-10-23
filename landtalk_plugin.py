@@ -1070,6 +1070,12 @@ class LandTalkPlugin:
             QMessageBox.warning(self.dock_widget, "Input Required", "Please enter a message.")
             return
         
+        # Check if the project has been saved
+        project = QgsProject.instance()
+        if not project.fileName():
+            QMessageBox.warning(self.dock_widget, "Error", "Please save your project first before analyzing. The plugin needs to create analysis files next to your project file.")
+            return
+        
         # Always ensure we have a selected rectangle and capture image first
         if not self.selected_rectangle:
             QMessageBox.warning(self.dock_widget, "Error", "Please select a map area first by drawing a rectangle on the map.")
