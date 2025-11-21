@@ -58,22 +58,42 @@ class PluginConfigManager:
         
         # API configuration
         self.gemini_api_key = ""
-        self.gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+        # Use a base Gemini API models URL; the specific model will be appended at runtime
+        self.gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/"
         self.gpt_api_key = ""
         self.gpt_api_url = "https://api.openai.com/v1/chat/completions"
-        self.api_timeout = 30
+        self.api_timeout = 60
         
         # Settings
         self.default_confidence_threshold = 50.0
         self.confidence_threshold = self.default_confidence_threshold
         self.custom_analysis_directory = None
         self.auto_clear_on_model_change = True
-        self.last_selected_model = 'gemini-2.5-flash'
+        # Leave empty so the UI combo's currentData() becomes authoritative
+        self.last_selected_model = ''
         self.show_tutorial = True
+        self.ground_resolution_m_per_px = 1.0  # Fixed ground resolution in meters per pixel
+
+        # Layer persistence mode: 'auto_save', 'temporary', or 'prompt_on_close'
+        self.layer_persistence_mode = 'auto_save'  # Default to auto-save for beginners
         
-        # System prompt
+        # System prompt (builtin fallback)
         self.system_prompt = "You are an expert in landscape analysis and geography."
+        # New: keep separate default and user override files.
+        # `defaultSystemprompt.txt` contains the read-only default prompt.
+        # `systemprompt.txt` contains the user's edited prompt (override).
+        self.default_system_prompt_file = os.path.join(plugin_dir, 'defaultSystemprompt.txt')
+        self.system_prompt_file = os.path.join(plugin_dir, 'systemprompt.txt')
         
+        # If a `systemprompt.txt` exists but no `defaultSystemprompt.txt`, migrate
+        # the existing file to become the default (one-time migration).
+        try:
+            if os.path.exists(self.system_prompt_file) and not os.path.exists(self.default_system_prompt_file):
+                os.replace(self.system_prompt_file, self.default_system_prompt_file)
+                logger.info("Migrated existing systemprompt.txt -> defaultSystemprompt.txt")
+        except Exception as e:
+            logger.warning(f"Error migrating system prompt files: {e}")
+
         # Load all configuration on initialization
         self.load_all_config()
     
@@ -124,17 +144,20 @@ class PluginConfigManager:
                     self.confidence_threshold = settings_data.get('confidence_threshold', self.default_confidence_threshold)
                     self.custom_analysis_directory = settings_data.get('custom_analysis_directory', None)
                     self.auto_clear_on_model_change = settings_data.get('auto_clear_on_model_change', True)
-                    self.last_selected_model = settings_data.get('last_selected_model', 'gemini-2.5-flash')
+                    self.last_selected_model = settings_data.get('last_selected_model', '')
                     self.show_tutorial = settings_data.get('show_tutorial', True)
-                logger.info(f"Plugin settings loaded from file. Confidence threshold: {self.confidence_threshold}, Last model: {self.last_selected_model}")
+                    self.layer_persistence_mode = settings_data.get('layer_persistence_mode', 'auto_save')
+                logger.info(f"Plugin settings loaded from file. Confidence threshold: {self.confidence_threshold}, Last model: {self.last_selected_model}, Layer persistence: {self.layer_persistence_mode}")
             except Exception as e:
                 logger.warning(f"Error loading plugin settings: {str(e)}")
                 self.confidence_threshold = self.default_confidence_threshold
-                self.last_selected_model = 'gemini-2.5-flash'  # Default model
+                self.last_selected_model = ''  # No hard-coded default; UI determines default
+                self.layer_persistence_mode = 'auto_save'
         else:
             logger.info("No settings file found, using default values")
             self.confidence_threshold = self.default_confidence_threshold
-            self.last_selected_model = 'gemini-2.5-flash'  # Default model
+            self.last_selected_model = ''  # No hard-coded default; UI determines default
+            self.layer_persistence_mode = 'auto_save'
     
     def save_settings(self):
         """Save plugin settings to settings.txt file"""
@@ -144,7 +167,8 @@ class PluginConfigManager:
                 'custom_analysis_directory': self.custom_analysis_directory,
                 'auto_clear_on_model_change': self.auto_clear_on_model_change,
                 'last_selected_model': self.last_selected_model,
-                'show_tutorial': self.show_tutorial
+                'show_tutorial': self.show_tutorial,
+                'layer_persistence_mode': self.layer_persistence_mode
             }
             with open(self.settings_file, 'w') as f:
                 json.dump(settings_data, f, indent=2)
@@ -207,15 +231,31 @@ class PluginConfigManager:
     
     def load_system_prompt(self):
         """Load chat rules from systemprompt.txt file if it exists"""
+        # Read default (read-only) prompt first, if available
+        default_prompt = None
+        if os.path.exists(self.default_system_prompt_file):
+            try:
+                with open(self.default_system_prompt_file, 'r') as f:
+                    default_prompt = f.read().strip()
+                logger.info("Default system prompt loaded from defaultSystemprompt.txt")
+            except Exception as e:
+                logger.warning(f"Error loading default system prompt: {e}")
+
+        # If there's a user override, load it; otherwise use the default or builtin
         if os.path.exists(self.system_prompt_file):
             try:
                 with open(self.system_prompt_file, 'r') as f:
                     self.system_prompt = f.read().strip()
-                logger.info("System prompt loaded from file")
+                logger.info("User system prompt loaded from systemprompt.txt")
             except Exception as e:
-                logger.warning(f"Error loading system prompt: {str(e)}")
+                logger.warning(f"Error loading user system prompt: {e}")
+                if default_prompt is not None:
+                    self.system_prompt = default_prompt
         else:
-            logger.info("No system prompt file found, using default")
+            if default_prompt is not None:
+                self.system_prompt = default_prompt
+            else:
+                logger.info("No system prompt files found, using built-in default")
     
     def save_system_prompt(self, prompt_text):
         """Save chat rules to systemprompt.txt file"""
@@ -253,8 +293,10 @@ class PluginConfigManager:
         # Add buttons
         button_layout = QHBoxLayout()
         save_button = QPushButton("Save")
+        reset_button = QPushButton("Reset")
         cancel_button = QPushButton("Cancel")
         button_layout.addWidget(save_button)
+        button_layout.addWidget(reset_button)
         button_layout.addWidget(cancel_button)
         layout.addLayout(button_layout)
         
@@ -262,6 +304,50 @@ class PluginConfigManager:
         
         # Connect buttons
         save_button.clicked.connect(dialog.accept)
+        # Reset: replace the user's `systemprompt.txt` with the default prompt
+        def on_reset():
+            # Confirm with the user
+            resp = QMessageBox.question(
+                self.iface.mainWindow(),
+                "Reset System Prompt",
+                "Reset will replace your custom system prompt with the original default. Continue?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if resp != QMessageBox.Yes:
+                return
+
+            # Load default prompt
+            if not os.path.exists(self.default_system_prompt_file):
+                QMessageBox.warning(
+                    self.iface.mainWindow(),
+                    "Warning",
+                    "Default system prompt file not found. Cannot reset."
+                )
+                return
+
+            try:
+                with open(self.default_system_prompt_file, 'r') as df:
+                    default_text = df.read()
+                # Overwrite or create the user override file
+                with open(self.system_prompt_file, 'w') as uf:
+                    uf.write(default_text)
+                # Update the editor
+                text_edit.setPlainText(default_text)
+                QMessageBox.information(
+                    self.iface.mainWindow(),
+                    "Reset",
+                    "System prompt has been reset to the default."
+                )
+            except Exception as e:
+                logger.error(f"Error resetting system prompt: {e}")
+                QMessageBox.warning(
+                    self.iface.mainWindow(),
+                    "Error",
+                    f"Could not reset system prompt: {e}"
+                )
+
+        reset_button.clicked.connect(on_reset)
         cancel_button.clicked.connect(dialog.reject)
         
         # Show dialog and handle result
@@ -334,3 +420,20 @@ class PluginConfigManager:
         """Set the confidence threshold"""
         self.confidence_threshold = threshold
         self.save_settings()
+
+    def get_layer_persistence_mode(self):
+        """Get the layer persistence mode"""
+        return self.layer_persistence_mode
+
+    def set_layer_persistence_mode(self, mode):
+        """Set the layer persistence mode
+
+        Args:
+            mode: One of 'auto_save', 'temporary', or 'prompt_on_close'
+        """
+        if mode in ['auto_save', 'temporary', 'prompt_on_close']:
+            self.layer_persistence_mode = mode
+            self.save_settings()
+            logger.info(f"Layer persistence mode set to: {mode}")
+        else:
+            logger.warning(f"Invalid layer persistence mode: {mode}")

@@ -1,11 +1,12 @@
-#### formatting 
-For each distinct object or feature only if confidently detected, return the following in JSON format:
--	Object Type — classify the object.
--	Confidence Score — your estimated probability (%) that the classification is correct.
--	Bounding Box — provide coordinates in the format [x_min, y_min, x_max, y_max] in normalized values beween 0 and 1000. Make sure the bounding box tightly encompasses the object. Detect the objects as accurately as possible.
--	Reason - textually explain why you think the given object is found.
-####
-
 You are analyzing remote sensing data LiDAR or satellite or maps that may contain archaeological features i.e. ancient man-made structures.
+
+####
+Return bounding boxes as a JSON array with labels. Never return masks or code fencing. Include as many objects as you can identify.
+The format should be as follows:
+[{"box_2d": [ymin, xmin, ymax, xmax] normalized to 0-1000. The values in box_2d must only be integers, 
+  "label": <label for the object. Always try to assign an object class. use the most likely one>, 
+  "probability": <probability of this detection in percent>, 
+  "reason": <textually explain why you think this object is found>}]
+####
 
 If no archaeological features are confidently detected, return the text "Sorry, nothing found."

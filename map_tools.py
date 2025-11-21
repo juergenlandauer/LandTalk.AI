@@ -36,7 +36,7 @@ import tempfile
 import base64
 import time
 from qgis.PyQt.QtCore import Qt, QRectF, QSize, pyqtSignal, QPointF, QPoint
-from qgis.PyQt.QtGui import QColor, QPixmap, QPainter, QPen
+from qgis.PyQt.QtGui import QColor, QPixmap, QPainter, QPen, QKeyEvent
 from qgis.core import (
     Qgis, QgsProject, QgsMapSettings,
     QgsRectangle, QgsMapRendererParallelJob, QgsWkbTypes,
@@ -48,10 +48,11 @@ from .logging import logger
 
 class RectangleMapTool(QgsMapTool):
     """Map tool for drawing a rectangle on the map canvas"""
-    
-    # Define the signal as a class variable
+
+    # Define the signals as class variables
     rectangle_created = pyqtSignal(object)
-    
+    selection_cancelled = pyqtSignal()
+
     def __init__(self, canvas):
         QgsMapTool.__init__(self, canvas)
         self.canvas = canvas
@@ -63,7 +64,7 @@ class RectangleMapTool(QgsMapTool):
         self.start_point = None
         self.end_point = None
         self.is_drawing = False
-        # The signal is now defined as a class variable above
+        # The signals are now defined as class variables above
     
     def _convert_screen_rect_to_map_points(self, rect):
         """Convert screen rectangle to map coordinate points.
@@ -113,29 +114,38 @@ class RectangleMapTool(QgsMapTool):
     def canvasReleaseEvent(self, event):
         self.is_drawing = False
         self.end_point = self.toMapCoordinates(event.pos())
-        
+
         # Create the final rectangle
         rect = self.get_rectangle()
         self.rectangle_created.emit(rect)
-        
+
+    def keyPressEvent(self, event):
+        """Handle key press events - cancel selection on Escape"""
+        try:
+            escape_key = Qt.Key.Key_Escape
+        except AttributeError:
+            escape_key = Qt.Key_Escape
+
+        if event.key() == escape_key:
+            logger.info("Escape key pressed - cancelling rectangle selection")
+            self.rubber_band.reset()
+            self.start_point = None
+            self.end_point = None
+            self.is_drawing = False
+            self.selection_cancelled.emit()
+        else:
+            event.ignore()
+
     def get_rectangle(self):
         """Create a QRectF from the start and end points"""
-        # Get the map canvas transform
         mapToPixel = self.canvas.mapSettings().mapToPixel()
-        
-        # Convert map coordinates to screen coordinates
-        start_point_screen = mapToPixel.transform(self.start_point)
-        end_point_screen = mapToPixel.transform(self.end_point)
-        
-        # Create QPointF objects for screen coordinates
-        start_point = QPointF(start_point_screen.x(), start_point_screen.y())
-        end_point = QPointF(end_point_screen.x(), end_point_screen.y())
-        
-        # Create and return the rectangle
+        start_screen = mapToPixel.transform(self.start_point)
+        end_screen = mapToPixel.transform(self.end_point)
+
         return QRectF(
-            start_point if start_point.x() < end_point.x() else end_point,
-            end_point if start_point.x() < end_point.x() else start_point
-        )
+            QPointF(start_screen.x(), start_screen.y()),
+            QPointF(end_screen.x(), end_screen.y())
+        ).normalized()
 
 
 class MapRenderer:
@@ -147,206 +157,112 @@ class MapRenderer:
     TEMP_IMAGE_FILENAME = "gemini_map_image.png"
     TEMP_THUMBNAIL_FILENAME = "gemini_map_thumbnail.png"
 
-    # Rendering quality levels
-    QUALITY_FAST = 0    # No antialiasing, simplified rendering
-    QUALITY_NORMAL = 1  # Standard antialiasing
-    QUALITY_HIGH = 2    # High quality with all features
-
     def __init__(self, map_canvas, ground_resolution_m_per_px=1.0):
         self.map_canvas = map_canvas
         self.ground_resolution_m_per_px = ground_resolution_m_per_px
-        self._cached_filtered_layers = None
-        self._cached_layer_count = None
     
     def get_map_coordinates_and_extent(self, selected_rectangle):
         """Convert selected rectangle to map coordinates and extent.
-        
+
         Args:
             selected_rectangle: QRectF in screen coordinates
-            
+
         Returns:
             tuple: (top_left_map, bottom_right_map, map_extent, extent_width, extent_height)
                    Returns (None, None, None, None, None) if no selected rectangle
         """
         if not selected_rectangle:
             return None, None, None, None, None
-        
-        # Convert screen coordinates to map coordinates
+
         mapToPixel = self.map_canvas.mapSettings().mapToPixel()
-        top_left_point = QPoint(int(selected_rectangle.topLeft().x()), int(selected_rectangle.topLeft().y()))
-        bottom_right_point = QPoint(int(selected_rectangle.bottomRight().x()), int(selected_rectangle.bottomRight().y()))
-        
-        top_left_map = mapToPixel.toMapCoordinates(top_left_point)
-        bottom_right_map = mapToPixel.toMapCoordinates(bottom_right_point)
-        
-        # Create map extent from coordinates
-        map_extent = QgsRectangle(top_left_map.x(), bottom_right_map.y(), bottom_right_map.x(), top_left_map.y())
-        
-        # Calculate the extent in map units
+        top_left_map = mapToPixel.toMapCoordinates(
+            QPoint(int(selected_rectangle.left()), int(selected_rectangle.top())))
+        bottom_right_map = mapToPixel.toMapCoordinates(
+            QPoint(int(selected_rectangle.right()), int(selected_rectangle.bottom())))
+
+        map_extent = QgsRectangle(top_left_map.x(), bottom_right_map.y(),
+                                   bottom_right_map.x(), top_left_map.y())
         extent_width = abs(bottom_right_map.x() - top_left_map.x())
         extent_height = abs(bottom_right_map.y() - top_left_map.y())
-        
-        # Log the map coordinates of the rectangle
-        logger.info(f"Rectangle map coordinates: Top-left: ({top_left_map.x():.6f}, {top_left_map.y():.6f}), Bottom-right: ({bottom_right_map.x():.6f}, {bottom_right_map.y():.6f}), Extent: {extent_width:.6f} x {extent_height:.6f} map units")
-        
+
+        logger.info(f"Rectangle map coordinates: Top-left: ({top_left_map.x():.6f}, {top_left_map.y():.6f}), "
+                   f"Bottom-right: ({bottom_right_map.x():.6f}, {bottom_right_map.y():.6f}), "
+                   f"Extent: {extent_width:.6f} x {extent_height:.6f} map units")
+
         return top_left_map, bottom_right_map, map_extent, extent_width, extent_height
 
-    def filter_canvas_layers(self, use_cache=True):
+    def filter_canvas_layers(self):
         """Filter out LandTalk.ai analysis layers from canvas layers.
-
-        Args:
-            use_cache: If True, use cached result when layer count hasn't changed
 
         Returns:
             list: Filtered list of layers excluding LandTalk.ai analysis layers
         """
         canvas_layers = self.map_canvas.layers()
-        current_layer_count = len(canvas_layers)
-
-        # Return cached result if layer count hasn't changed
-        if use_cache and self._cached_filtered_layers is not None and self._cached_layer_count == current_layer_count:
-            logger.debug(f"Using cached filtered layers ({len(self._cached_filtered_layers)} layers)")
-            return self._cached_filtered_layers
-
         ai_analysis_group = QgsProject.instance().layerTreeRoot().findGroup("LandTalk.ai")
 
         logger.info(f"Total canvas layers: {len(canvas_layers)}")
-        logger.info(f"LandTalk.ai group found: {ai_analysis_group is not None}")
 
-        # Early return if no LandTalk.ai group exists - no filtering needed
+        # Early return if no LandTalk.ai group exists
         if not ai_analysis_group:
             valid_layers = [layer for layer in canvas_layers if layer.isValid()]
             logger.info(f"No LandTalk.ai group found, returning {len(valid_layers)} valid layers")
-            # Cache the result
-            self._cached_filtered_layers = valid_layers
-            self._cached_layer_count = current_layer_count
             return valid_layers
 
-        # Build set of layer IDs in LandTalk.ai group for faster lookup
+        # Build set of layer IDs in LandTalk.ai group
         landtalk_layer_ids = set()
         self._collect_group_layer_ids(ai_analysis_group, landtalk_layer_ids)
 
-        # Filter layers using the prebuilt set for O(1) lookup
-        filtered_layers = []
-        excluded_count = 0
+        # Filter layers
+        filtered_layers = [layer for layer in canvas_layers
+                          if layer.isValid() and layer.id() not in landtalk_layer_ids]
 
-        for layer in canvas_layers:
-            if not layer.isValid():
-                continue
-
-            if layer.id() in landtalk_layer_ids:
-                logger.info(f"Excluding LandTalk.ai layer: {layer.name()}")
-                excluded_count += 1
-            else:
-                filtered_layers.append(layer)
-
-        logger.info(f"Filtered layers count: {len(filtered_layers)} (excluded {excluded_count} LandTalk.ai layers)")
-
-        # Cache the result
-        self._cached_filtered_layers = filtered_layers
-        self._cached_layer_count = current_layer_count
+        excluded_count = len(canvas_layers) - len(filtered_layers)
+        logger.info(f"Filtered layers: {len(filtered_layers)} (excluded {excluded_count} LandTalk.ai layers)")
 
         return filtered_layers
-    
-    def invalidate_layer_cache(self):
-        """Invalidate the cached filtered layers. Call this when layers are added/removed."""
-        self._cached_filtered_layers = None
-        self._cached_layer_count = None
-        logger.debug("Layer cache invalidated")
 
     def _collect_group_layer_ids(self, group_node, layer_id_set):
-        """Recursively collect all layer IDs within a group and its subgroups.
-
-        Args:
-            group_node: QgsLayerTreeGroup to process
-            layer_id_set: Set to add layer IDs to
-        """
+        """Recursively collect all layer IDs within a group and its subgroups."""
         for child in group_node.children():
             if hasattr(child, 'layer') and child.layer():
-                # This is a layer node
                 layer_id_set.add(child.layer().id())
             elif hasattr(child, 'children'):
-                # This is a group node, recurse into it
                 self._collect_group_layer_ids(child, layer_id_set)
 
     def _calculate_thumbnail_dimensions(self, source_width, source_height):
-        """Calculate thumbnail dimensions while preserving aspect ratio.
-        
-        Args:
-            source_width: Original width (pixels or any unit)
-            source_height: Original height (pixels or any unit)
-            
-        Returns:
-            tuple: (thumbnail_width, thumbnail_height)
-        """
+        """Calculate thumbnail dimensions while preserving aspect ratio."""
         if source_height <= 0:
             return self.MAX_THUMBNAIL_WIDTH, self.MAX_THUMBNAIL_HEIGHT
-            
+
         aspect_ratio = source_width / source_height
         max_ratio = self.MAX_THUMBNAIL_WIDTH / self.MAX_THUMBNAIL_HEIGHT
-        
+
         if aspect_ratio >= max_ratio:
-            # Image is wider, constrain by width
-            thumbnail_width = self.MAX_THUMBNAIL_WIDTH
-            thumbnail_height = int(self.MAX_THUMBNAIL_WIDTH / aspect_ratio)
+            return self.MAX_THUMBNAIL_WIDTH, int(self.MAX_THUMBNAIL_WIDTH / aspect_ratio)
         else:
-            # Image is taller, constrain by height
-            thumbnail_height = self.MAX_THUMBNAIL_HEIGHT
-            thumbnail_width = int(self.MAX_THUMBNAIL_HEIGHT * aspect_ratio)
-            
-        return thumbnail_width, thumbnail_height
+            return int(self.MAX_THUMBNAIL_HEIGHT * aspect_ratio), self.MAX_THUMBNAIL_HEIGHT
 
     def _save_thumbnail_to_temp(self, thumbnail_pixmap):
-        """Save thumbnail to temporary directory with standardized error handling.
-        
-        Args:
-            thumbnail_pixmap: QPixmap to save
-            
-        Returns:
-            str: Path to saved thumbnail, or None if failed
-        """
-        try:
-            thumbnail_path = os.path.join(tempfile.gettempdir(), self.TEMP_THUMBNAIL_FILENAME)
-            if thumbnail_pixmap.save(thumbnail_path, "PNG"):
-                logger.info(f"Thumbnail saved to temp directory: {thumbnail_path}")
-                return thumbnail_path
-            else:
-                logger.warning(f"Failed to save thumbnail to: {thumbnail_path}")
-                return None
-        except Exception as e:
-            logger.warning(f"Failed to save thumbnail to temp directory: {str(e)}")
-            return None
+        """Save thumbnail to temporary directory."""
+        thumbnail_path = os.path.join(tempfile.gettempdir(), self.TEMP_THUMBNAIL_FILENAME)
+        if thumbnail_pixmap.save(thumbnail_path, "PNG"):
+            logger.info(f"Thumbnail saved: {thumbnail_path}")
+            return thumbnail_path
+        logger.warning(f"Failed to save thumbnail to: {thumbnail_path}")
+        return None
 
-    def _handle_operation_error(self, operation_name, error, return_value=None):
-        """Standardized error handling for map operations.
-        
-        Args:
-            operation_name: Name of the operation for logging
-            error: Exception that occurred
-            return_value: Value to return on error (default: None)
-            
-        Returns:
-            The specified return_value
-        """
-        logger.error(f"Error in {operation_name}: {str(error)}")
-        return return_value
-
-    def create_and_render_map(self, map_extent, output_width, output_height, quality=None):
+    def create_and_render_map(self, map_extent, output_width, output_height, high_quality=False):
         """Create map settings and render the map.
 
         Args:
             map_extent: QgsRectangle defining the map extent
             output_width: Width of output image in pixels
             output_height: Height of output image in pixels
-            quality: Rendering quality level (QUALITY_FAST/NORMAL/HIGH), defaults to NORMAL
+            high_quality: If True, enable high quality rendering (default: False)
 
         Returns:
             QImage: The rendered map image, or None if rendering failed
         """
-        if quality is None:
-            quality = self.QUALITY_NORMAL
-
-        # Create map settings
         map_settings = QgsMapSettings()
         map_settings.setLayers(self.filter_canvas_layers())
         map_settings.setExtent(map_extent)
@@ -355,36 +271,21 @@ class MapRenderer:
         map_settings.setBackgroundColor(self.map_canvas.canvasColor())
 
         # Apply quality settings
-        if quality == self.QUALITY_FAST:
-            # Fast rendering: disable antialiasing and other expensive features
-            map_settings.setFlag(Qgis.MapSettingsFlag.Antialiasing, False)
-            map_settings.setFlag(Qgis.MapSettingsFlag.RenderPartialOutput, True)
-            map_settings.setFlag(Qgis.MapSettingsFlag.UseRenderingOptimization, True)
-        elif quality == self.QUALITY_HIGH:
-            # High quality: enable all features
-            map_settings.setFlag(Qgis.MapSettingsFlag.Antialiasing, True)
+        map_settings.setFlag(Qgis.MapSettingsFlag.Antialiasing, high_quality)
+        map_settings.setFlag(Qgis.MapSettingsFlag.UseRenderingOptimization, True)
+        if high_quality:
             map_settings.setFlag(Qgis.MapSettingsFlag.HighQualityImageTransforms, True)
-        else:
-            # Normal quality: standard antialiasing
-            map_settings.setFlag(Qgis.MapSettingsFlag.Antialiasing, True)
-            map_settings.setFlag(Qgis.MapSettingsFlag.UseRenderingOptimization, True)
 
         # Render the map
-        quality_names = {self.QUALITY_FAST: "FAST", self.QUALITY_NORMAL: "NORMAL", self.QUALITY_HIGH: "HIGH"}
-        logger.info(f"Starting map rendering (quality: {quality_names.get(quality, 'UNKNOWN')})...")
+        logger.info(f"Starting map rendering ({'high' if high_quality else 'normal'} quality)...")
         start_time = time.time()
 
         job = QgsMapRendererParallelJob(map_settings)
         job.start()
-
-        # QGIS waitForFinished() blocks until complete, no timeout support
-        # For now, just wait - timeout implementation would require threading
         job.waitForFinished()
 
-        elapsed_time = time.time() - start_time
-        logger.info(f"Map rendering completed in {elapsed_time:.3f} seconds")
+        logger.info(f"Map rendering completed in {time.time() - start_time:.3f} seconds")
 
-        # Get the rendered image
         rendered_image = job.renderedImage()
         if rendered_image.isNull():
             logger.warning("Failed to render map image")
@@ -406,7 +307,7 @@ class MapRenderer:
             return None
 
         try:
-            # Try to load and scale existing AI image first (faster and ensures consistency)
+            # Try to load and scale existing AI image first
             ai_image_path = os.path.join(tempfile.gettempdir(), self.TEMP_IMAGE_FILENAME)
             if os.path.exists(ai_image_path):
                 ai_pixmap = QPixmap(ai_image_path)
@@ -426,7 +327,7 @@ class MapRenderer:
 
             thumb_w, thumb_h = self._calculate_thumbnail_dimensions(abs(selected_rectangle.width()),
                                                                     abs(selected_rectangle.height()))
-            thumbnail_image = self.create_and_render_map(map_extent, thumb_w, thumb_h, quality=self.QUALITY_FAST)
+            thumbnail_image = self.create_and_render_map(map_extent, thumb_w, thumb_h, high_quality=False)
             if thumbnail_image is None:
                 return None
 
@@ -436,7 +337,8 @@ class MapRenderer:
             return thumbnail_pixmap
 
         except Exception as e:
-            return self._handle_operation_error("capture_map_thumbnail", e)
+            logger.error(f"Error in capture_map_thumbnail: {str(e)}")
+            return None
 
     def capture_map_image(self, selected_rectangle):
         """Capture the selected area of the map as an image at fixed ground resolution
@@ -564,50 +466,40 @@ class MapRenderer:
                 return None
 
         except Exception as e:
-            return self._handle_operation_error("debug_render_ai_results", e)
+            logger.error(f"Error in debug_render_ai_results: {str(e)}")
+            return None
 
     def _extract_bbox_coordinates(self, result):
         """Extract bounding box coordinates from AI result in various formats.
 
         Returns:
-            tuple: (x1, y1, x2, y2) or None if not found
+            tuple: (ymin, xmin, ymax, xmax) or None if not found
         """
         if not isinstance(result, dict):
             return None
 
-        # Try bounding_box or Bounding Box field
-        for bbox_field in ['bounding_box', 'Bounding Box']:
-            if bbox_field in result:
-                bbox_data = result[bbox_field]
-                if isinstance(bbox_data, list) and len(bbox_data) >= 4:
-                    return tuple(bbox_data[:4])
+        # Try common bbox field names
+        for field in ['box_2d', 'box2d', 'bounding_box', 'Bounding Box']:
+            if field in result:
+                bbox = result[field]
+                if isinstance(bbox, list) and len(bbox) >= 4:
+                    return tuple(bbox[:4])
 
         # Try x, y, width, height format
-        if all(field in result for field in ['x', 'y', 'width', 'height']):
-            x, y, w, h = result['x'], result['y'], result['width'], result['height']
-            return (x, y, x + w, y + h)
+        if all(k in result for k in ['x', 'y', 'width', 'height']):
+            return (result['x'], result['y'], result['x'] + result['width'], result['y'] + result['height'])
 
         # Try xmin, ymin, xmax, ymax format
-        if all(field in result for field in ['xmin', 'ymin', 'xmax', 'ymax']):
+        if all(k in result for k in ['xmin', 'ymin', 'xmax', 'ymax']):
             return (result['xmin'], result['ymin'], result['xmax'], result['ymax'])
 
         return None
 
     def _bbox_to_qrect(self, bbox_coords, image_width, image_height):
-        """Convert bounding box coordinates (0-1000 range) to QRectF in image pixels.
-
-        Args:
-            bbox_coords: tuple of (x1, y1, x2, y2) in 0-1000 range
-            image_width: Image width in pixels
-            image_height: Image height in pixels
-
-        Returns:
-            QRectF: Rectangle in image pixel coordinates
-        """
-        x1, y1, x2, y2 = bbox_coords
-        # Convert from 0-1000 range to pixel coordinates
-        left = min(x1, x2) / 1000.0 * image_width
-        top = min(y1, y2) / 1000.0 * image_height
-        right = max(x1, x2) / 1000.0 * image_width
-        bottom = max(y1, y2) / 1000.0 * image_height
+        """Convert bounding box coordinates (0-1000 range) to QRectF in image pixels."""
+        ymin, xmin, ymax, xmax = bbox_coords
+        left = min(xmin, xmax) / 1000.0 * image_width
+        top = min(ymin, ymax) / 1000.0 * image_height
+        right = max(xmin, xmax) / 1000.0 * image_width
+        bottom = max(ymin, ymax) / 1000.0 * image_height
         return QRectF(left, top, right - left, bottom - top)
