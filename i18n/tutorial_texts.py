@@ -53,7 +53,7 @@ GETTING_STARTED_CONTENT = """
     <li><b>Show confidence scores:</b> Each feature includes a confidence percentage (0-100)</li>
     <li><b>Provide explanations:</b> The AI explains why it identified each feature</li>
     <li><b>Display labels:</b> Feature names and confidence scores are shown on the map</li>
-    <li><b>Results layers:</b> all new map layers are stored as GeoPackages (gpkg) in a directory LandTalk.ai where your project file is located. Delete unused layers</li>
+    <li><b>Results layers:</b> all new map layers are  stored as GeoPackages (gpkg) automatically in a directory LandTalk_Analysis where your project file is located. Delete unused layers. And you can modify this behavior in the Options menu.</li>
 </ul>
 """
 
@@ -101,7 +101,7 @@ FAQ_CONTENT = """
 <p>Try adjusting your prompt to be more specific, lower the confidence threshold, try a different AI model, or customize the rules to focus on the features you're interested in.</p>
 
 <h3>Q5: Can I save my analysis results?</h3>
-<p>Yes! All analysis results are saved as GeoPackage files in the 'LandTalk.AI analysis' directory next to your QGIS project file. The layers are also added to your QGIS project.</p>
+<p>Yes! All analysis results are saved as GeoPackage files in the 'LandTalk.AI_Analysis' directory next to your QGIS project file. Check the Options button for alternatives to this behavior.</p>
 
 <h3>Q6: How do I customize the AI behavior?</h3>
 <p>Click the <a href='internal:rules'><b>Rules</b></a> button to edit the system prompt. This allows you to customize how the AI analyzes your maps, what features to focus on, and how to structure the output.</p>
@@ -113,7 +113,7 @@ FAQ_CONTENT = """
 <p>Yes! You can continue conversations about the same area by adding new messages. The AI will remember the previous context and build upon it.</p>
 
 <h3>Q9: How do I remove old analysis results?</h3>
-<p>You can delete individual layers from the 'LandTalk.ai' group in QGIS, or delete the entire group to remove all analysis results. The files in the analysis directory can also be deleted manually.</p>
+<p>You can delete individual layers from the 'LandTalk.ai' group in QGIS, or delete the entire group to remove all analysis results. The files in the analysis directory should then be deleted manually.</p>
 """
 
 # Button and UI Texts
