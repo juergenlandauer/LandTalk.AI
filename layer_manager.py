@@ -489,7 +489,7 @@ class LayerManager:
         logger.info(f"Created {len(created_layers)} layers in group {group_name}")
         logger.info(f"Collected labels: {collected_labels}")
 
-        # Auto-save if persistence mode is set to 'auto_save'
+        # Handle layer persistence based on mode
         if hasattr(self.plugin, 'config_manager'):
             persistence_mode = self.plugin.config_manager.get_layer_persistence_mode()
             logger.info(f"Layer persistence mode: {persistence_mode}")
@@ -505,7 +505,6 @@ class LayerManager:
                     if success:
                         logger.info(f"Successfully auto-saved and converted layers to: {gpkg_path}")
                         # Show message to user
-                        from qgis.core import Qgis
                         if hasattr(self.plugin, 'iface'):
                             self.plugin.iface.messageBar().pushMessage(
                                 "LandTalk Plugin",
@@ -517,6 +516,18 @@ class LayerManager:
                         logger.warning("Failed to convert memory layers to file-based")
                 else:
                     logger.warning("Failed to auto-save layers to GeoPackage")
+
+            elif persistence_mode == 'temporary':
+                # In temporary mode, layers remain as memory layers
+                # They will be prompted for saving when project is saved/closed
+                logger.info("Temporary layer mode: layers created as memory-only")
+                if hasattr(self.plugin, 'iface'):
+                    self.plugin.iface.messageBar().pushMessage(
+                        "LandTalk Plugin",
+                        "Analysis layers created as temporary (will prompt to save on project save)",
+                        level=Qgis.MessageLevel.Info,
+                        duration=3
+                    )
 
         return created_layers
     

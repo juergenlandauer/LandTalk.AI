@@ -209,7 +209,7 @@ class LandTalkPlugin:
             logger.info(f"LandTalk.AI analysis files will be saved to: {analysis_dir}")
 
     def on_project_about_to_be_saved(self):
-        """Handle project about to be saved - auto-convert memory layers to file-based before save"""
+        """Handle project about to be saved - prompt or auto-convert memory layers to file-based before save"""
         logger.info("Project about to be saved - checking for memory layers to convert")
 
         try:
@@ -237,31 +237,65 @@ class LandTalkPlugin:
             mode = self.config_manager.get_layer_persistence_mode()
             logger.info(f"Found memory layers. Persistence mode: {mode}")
 
-            # For temporary mode, auto-save and convert before project save
+            # For temporary mode, ask user if they want to save before project save
             # (auto_save mode already converts layers immediately after analysis)
             if mode == 'temporary':
-                logger.info("Auto-converting memory layers to file-based before project save")
+                logger.info("Temporary layer mode: prompting user to save before project save")
 
-                # Save to GeoPackage
-                output_path = self.layer_manager.export_landtalk_group_to_geopackage()
+                # Ask user if they want to save the memory layers
+                reply = QMessageBox.question(
+                    self.iface.mainWindow(),
+                    "Save Analysis Layers",
+                    "You have temporary LandTalk.AI analysis layers that will be lost when the project closes.\n\n"
+                    "Do you want to save them to a GeoPackage file?\n\n"
+                    "Yes: Layers will be saved and persisted\n"
+                    "No: Layers will remain temporary (memory-only) and lost on project close",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
 
-                if output_path:
-                    # Convert memory layers to file-based
-                    success = self.layer_manager.convert_memory_layers_to_file_based(landtalk_group, output_path)
-                    if success:
-                        logger.info(f"Successfully converted memory layers to file-based: {output_path}")
-                        # Show a brief notification
-                        from qgis.core import Qgis
-                        self.iface.messageBar().pushMessage(
-                            "LandTalk.AI",
-                            f"Memory layers auto-saved to: {os.path.basename(output_path)}",
-                            level=Qgis.MessageLevel.Info,
-                            duration=3
-                        )
+                if reply == QMessageBox.Yes:
+                    # User chose to save
+                    logger.info("User chose to save temporary layers before project save")
+
+                    # Save to GeoPackage
+                    output_path = self.layer_manager.export_landtalk_group_to_geopackage()
+
+                    if output_path:
+                        # Convert memory layers to file-based
+                        success = self.layer_manager.convert_memory_layers_to_file_based(landtalk_group, output_path)
+                        if success:
+                            logger.info(f"Successfully converted memory layers to file-based: {output_path}")
+                            # Show a brief notification
+                            self.iface.messageBar().pushMessage(
+                                "LandTalk.AI",
+                                f"Analysis layers saved to: {os.path.basename(output_path)}",
+                                level=Qgis.MessageLevel.Info,
+                                duration=3
+                            )
+                        else:
+                            logger.warning("Failed to convert some memory layers to file-based")
+                            QMessageBox.warning(
+                                self.iface.mainWindow(),
+                                "Save Failed",
+                                "Failed to convert memory layers to file-based layers."
+                            )
                     else:
-                        logger.warning("Failed to convert some memory layers to file-based")
+                        logger.warning("Failed to save memory layers to GeoPackage")
+                        QMessageBox.warning(
+                            self.iface.mainWindow(),
+                            "Save Failed",
+                            "Failed to save layers to GeoPackage file."
+                        )
                 else:
-                    logger.warning("Failed to save memory layers to GeoPackage")
+                    # User chose not to save - layers remain as memory layers
+                    logger.info("User chose to keep layers as temporary (memory-only)")
+                    self.iface.messageBar().pushMessage(
+                        "LandTalk.AI",
+                        "Analysis layers kept as temporary (will be lost on project close)",
+                        level=Qgis.MessageLevel.Warning,
+                        duration=3
+                    )
 
         except Exception as e:
             logger.error(f"Error in on_project_about_to_be_saved: {str(e)}")
