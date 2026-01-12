@@ -18,7 +18,7 @@
 
 - QGIS 3.26 or later
 - Google Gemini API key
-- OpenAI GPT API key (optional, for GPT analysis)
+- OpenAI GPT API key (optional, if you want to use ChatGPT)
 - Python packages (install in QGIS Python environment):
   - `requests>=2.25.0` (for API calls)
 

@@ -179,18 +179,14 @@ class PluginConfigManager:
     def get_gemini_key(self):
         """Get Gemini API key from the user"""
         dialog = ApiKeyDialog(
-            self.iface.mainWindow(), 
-            "Gemini API Key", 
+            self.iface.mainWindow(),
+            "Gemini API Key",
             "gemini",
-            "Please enter your Google Gemini API key:\n\n"
-            "1. Go to https://aistudio.google.com/app/apikey\n"
-            "2. Create a new API key\n"
-            "3. Copy and paste it below",
             self.gemini_api_key
         )
-        
+
         if dialog.exec_() == QDialog.Accepted:
-            self.gemini_api_key = dialog.get_api_key()
+            self.gemini_api_key = dialog.get_text()
             self.save_keys()
             return True
         return False
@@ -198,18 +194,14 @@ class PluginConfigManager:
     def get_gpt_key(self):
         """Get GPT API key from the user"""
         dialog = ApiKeyDialog(
-            self.iface.mainWindow(), 
-            "GPT API Key", 
+            self.iface.mainWindow(),
+            "GPT API Key",
             "openai",
-            "Please enter your OpenAI API key:\n\n"
-            "1. Go to https://platform.openai.com/api-keys\n"
-            "2. Create a new API key\n"
-            "3. Copy and paste it below",
             self.gpt_api_key
         )
-        
+
         if dialog.exec_() == QDialog.Accepted:
-            self.gpt_api_key = dialog.get_api_key()
+            self.gpt_api_key = dialog.get_text()
             self.save_keys()
             return True
         return False

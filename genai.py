@@ -301,7 +301,12 @@ class GenAIHandler:
 #                "thinkingConfig": {
 #                    "thinkingBudget": 0
 #                }
-            }
+            },
+            "tools": [
+                {
+                    "urlContext": {}
+                }
+            ]
         }
         
         # Construct the full URL with model name and endpoint
@@ -400,12 +405,13 @@ class GenAIHandler:
     def extract_json_from_response(self, response_text):
         """Extract first valid JSON string from AI response text and return cleaned text and validated JSON data"""
         import json
+        import re
 
         if not response_text or not isinstance(response_text, str):
             return response_text, None
 
         logger.info("Extracting JSON from response")
-        
+
         # Use json.loads to find valid JSON by testing different string boundaries
         # Start from each opening brace/bracket and try to find the complete JSON
         for i, char in enumerate(response_text):
@@ -413,7 +419,8 @@ class GenAIHandler:
                 # Try to find the complete JSON starting from this position
                 for end_pos in range(i + 1, len(response_text) + 1):
                     try:
-                        parsed_json = json.loads(response_text[i:end_pos])
+                        json_candidate = response_text[i:end_pos]
+                        parsed_json = json.loads(json_candidate)
 
                         # Use basic validation
                         if self._basic_json_validation(parsed_json):
@@ -421,11 +428,74 @@ class GenAIHandler:
                             cleaned_text = (response_text[:i] + response_text[end_pos:].strip()).replace('\n\n\n', '\n\n').strip()
                             logger.info("Successfully extracted and validated JSON")
                             return cleaned_text, parsed_json
-                    except json.JSONDecodeError:
+                    except json.JSONDecodeError as e:
+                        # Try to repair common JSON issues before giving up on this position
+                        if end_pos == len(response_text):
+                            json_candidate = response_text[i:end_pos]
+                            repaired_json = self._attempt_json_repair(json_candidate)
+                            if repaired_json:
+                                try:
+                                    parsed_json = json.loads(repaired_json)
+                                    if self._basic_json_validation(parsed_json):
+                                        cleaned_text = (response_text[:i] + response_text[end_pos:].strip()).replace('\n\n\n', '\n\n').strip()
+                                        logger.info("Successfully extracted and validated JSON after repair")
+                                        return cleaned_text, parsed_json
+                                except json.JSONDecodeError:
+                                    pass
                         continue
 
         logger.info("No valid JSON data found in response")
         return response_text, None
+
+    def _attempt_json_repair(self, json_str):
+        """Attempt to repair common JSON syntax errors
+
+        Args:
+            json_str: Malformed JSON string
+
+        Returns:
+            str: Repaired JSON string or None if repair failed
+        """
+        import re
+
+        if not json_str or not isinstance(json_str, str):
+            return None
+
+        logger.info(f"Attempting to repair JSON: {json_str[:200]}...")
+
+        try:
+            # Pattern 1: Fix missing values after colons (e.g., "key":, -> "key": null,)
+            # This handles cases like {"box_2d":, "label": ...}
+            repaired = re.sub(r':\s*,', ': null,', json_str)
+
+            # Pattern 2: Fix missing values before closing braces (e.g., "key":} -> "key": null})
+            repaired = re.sub(r':\s*}', ': null}', repaired)
+
+            # Pattern 3: Fix missing values before closing brackets (e.g., "key":] -> "key": null])
+            repaired = re.sub(r':\s*\]', ': null]', repaired)
+
+            # Pattern 4: Fix trailing commas in objects
+            repaired = re.sub(r',(\s*[}\]])', r'\1', repaired)
+
+            # Pattern 5: Fix missing quotes around keys (basic attempt)
+            # Match word characters followed by colon, ensure they're quoted
+            repaired = re.sub(r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', repaired)
+
+            # Pattern 6: Handle incomplete arrays at the end
+            # If string ends with incomplete structure, try to close it
+            if repaired.count('[') > repaired.count(']'):
+                repaired += ']' * (repaired.count('[') - repaired.count(']'))
+            if repaired.count('{') > repaired.count('}'):
+                repaired += '}' * (repaired.count('{') - repaired.count('}'))
+
+            if repaired != json_str:
+                logger.info(f"JSON repair attempted. Original: {json_str[:100]}... -> Repaired: {repaired[:100]}...")
+                return repaired
+
+        except Exception as e:
+            logger.warning(f"JSON repair failed: {str(e)}")
+
+        return None
     
     def _has_field_case_insensitive(self, obj, field_variants):
         """Check if object has any of the field variants (case-insensitive)"""
@@ -434,14 +504,55 @@ class GenAIHandler:
         obj_keys_lower = {k.lower(): k for k in obj.keys()}
         return any(variant.lower() in obj_keys_lower for variant in field_variants)
 
+    def _get_field_value_case_insensitive(self, obj, field_variants):
+        """Get value from dict using case-insensitive field lookup
+
+        Args:
+            obj: Dictionary to search
+            field_variants: List of field names to try (in order of priority)
+
+        Returns:
+            Value if found, None otherwise
+        """
+        if not isinstance(obj, dict):
+            return None
+        obj_keys_lower = {k.lower(): k for k in obj.keys()}
+        for field_name in field_variants:
+            field_lower = field_name.lower()
+            if field_lower in obj_keys_lower:
+                return obj[obj_keys_lower[field_lower]]
+        return None
+
     def _validate_feature_object(self, item):
-        """Validate a single feature object has required fields"""
-        has_object_type = self._has_field_case_insensitive(item, ['label', 'object_type', 'object type', 'objectType'])
-        has_bbox = self._has_field_case_insensitive(item, ['box_2d', 'box2d', 'bounding_box', 'bounding box', 'bbox'])
-        has_point = self._has_field_case_insensitive(item, ['point', 'points', 'coordinates'])
-        has_geometry = has_bbox or has_point
+        """Validate a single feature object has required fields with valid values"""
+        # Check for label/object_type
+        label_value = self._get_field_value_case_insensitive(item, ['label', 'object_type', 'object type', 'objectType'])
+        has_valid_label = label_value is not None and label_value != ''
+
+        # Check for bbox with valid data (list/array with at least 4 elements)
+        bbox_value = self._get_field_value_case_insensitive(item, ['box_2d', 'box2d', 'bounding_box', 'bounding box', 'bbox'])
+        has_valid_bbox = (bbox_value is not None and
+                         isinstance(bbox_value, (list, tuple)) and
+                         len(bbox_value) >= 4 and
+                         all(v is not None for v in bbox_value[:4]))
+
+        # Check for point with valid data (list/array with at least 2 elements)
+        point_value = self._get_field_value_case_insensitive(item, ['point', 'points', 'coordinates'])
+        has_valid_point = (point_value is not None and
+                          isinstance(point_value, (list, tuple)) and
+                          len(point_value) >= 2 and
+                          all(v is not None for v in point_value[:2]))
+
+        has_valid_geometry = has_valid_bbox or has_valid_point
+
+        # Log validation failure reasons for debugging
+        if not has_valid_label:
+            logger.debug(f"Feature validation failed: missing or empty label (value: {label_value})")
+        if not has_valid_geometry:
+            logger.debug(f"Feature validation failed: invalid geometry (bbox: {bbox_value}, point: {point_value})")
+
         # Only require object_type and geometry - confidence and reason are optional
-        return has_object_type and has_geometry
+        return has_valid_label and has_valid_geometry
 
     def _basic_json_validation(self, json_data):
         """Basic JSON validation fallback when Pydantic is not available"""

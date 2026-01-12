@@ -44,3 +44,7 @@ class PluginConstants:
     # Message durations
     SUCCESS_MESSAGE_DURATION = 7  # seconds
     WARNING_MESSAGE_DURATION = 8  # seconds
+
+    # UI feature flags
+    ENABLE_ADD_EXAMPLES_BUTTON = True  # Show/hide the "Add examples" button
+    ENABLE_WIKIDATA_BUTTON = False  # Show/hide the "Wikidata" button

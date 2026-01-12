@@ -26,7 +26,7 @@
  ***************************************************************************/
 """
 
-__version__ = '0.1.3'
+__version__ = '1.2.1'
 __author__ = 'Juergen Landauer'
 __email__ = 'juergen@landauer-ai.de'
 

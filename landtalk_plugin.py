@@ -301,16 +301,44 @@ class LandTalkPlugin:
             logger.error(f"Error in on_project_about_to_be_saved: {str(e)}")
 
     def on_project_closed(self):
-        """Handle project closed event - hide dock widget and cleanup"""
-        logger.info("Project closed - hiding LandTalk Plugin GUI")
-        
-        # Hide and cleanup the dock widget if it exists
+        """Handle project closed event - reset plugin state completely"""
+        logger.info("Project closed - resetting LandTalk Plugin state")
+
+        # Reset the dock widget state if it exists
         if self.dock_widget:
+            # Clear chat history
+            self.dock_widget.chat_history = []
+
+            # Clear chat display
+            if self.dock_widget.chat_display:
+                self.dock_widget.chat_display.clear()
+
+            # Clear prompt text input field
+            if self.dock_widget.prompt_text:
+                self.dock_widget.prompt_text.clear()
+
+            # Clear uploaded/example images
+            self.dock_widget.uploaded_images = []
+
+            # Clear thumbnail display
+            self.dock_widget.clear_thumbnail_display()
+
+            # Add welcome message back
+            self.dock_widget.add_system_message("Welcome! Click 'Select area' above to choose a map area.")
+
+            # Hide and cleanup the dock widget
             self.dock_widget.hide()
             self.dock_widget.close()
-            
+
+            logger.info("Dock widget state reset: chat history cleared, images removed")
+
         # Cleanup any active selection
         self.cleanup_selection()
+
+        # Clear captured image data
+        self.capture_state.clear()
+
+        logger.info("Plugin state fully reset on project close")
 
 
     def start_rectangle_selection(self):
@@ -571,7 +599,7 @@ class LandTalkPlugin:
         self.dock_widget.clear_thumbnail_display()
         # Ensure a fresh map image will be captured for the next chat
         self.capture_state.image_data = None
-        self.dock_widget.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. CAUTION: resulting bounding boxes are only precise with Gemini-robotics and Gemini-3.")
+        self.dock_widget.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini 3 models currently provide best results.")
         
         # Capture the high-resolution map image first (so thumbnail can be created from it)
         logger.info("Capturing high-resolution map image immediately after rectangle selection")

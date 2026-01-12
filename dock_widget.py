@@ -54,6 +54,7 @@ from .tutorial_dialog import TutorialDialog
 from .platform_utils import IS_MACOS, scale_font, resolve_dock_widget_features
 from .ui_styles import UIStyles
 from .dimension_utils import calculate_ground_dimensions, format_dimension
+from .constants import PluginConstants
 
 
 class ImagePopupDialog(QDialog):
@@ -344,6 +345,230 @@ class ExampleImagesDialog(QDialog):
             QMessageBox.warning(self, "Error", f"Failed to delete all images: {str(e)}")
 
 
+class WikidataQNumberDialog(QDialog):
+    """Dialog to input a Wikidata Q number"""
+
+    def __init__(self, parent=None):
+        super(WikidataQNumberDialog, self).__init__(parent)
+        self.setWindowTitle("Enter Wikidata Q Number")
+        self.setModal(True)
+        self.setMinimumSize(350, 150)
+        self.resize(400, 150)
+
+        self.q_number = None
+
+        # Create main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
+
+        # Add title label
+        title_label = QLabel("Wikidata Q Number")
+        title_label.setStyleSheet("font-size: 12pt; font-weight: bold;")
+        main_layout.addWidget(title_label)
+
+        # Add description
+        desc_label = QLabel("Enter a Wikidata Q number (e.g., Q100530634):")
+        desc_label.setWordWrap(True)
+        main_layout.addWidget(desc_label)
+
+        # Input field for Q number
+        self.q_input = QLineEdit()
+        self.q_input.setPlaceholderText("Q100530634")
+        self.q_input.setStyleSheet("padding: 5px; font-size: 11pt;")
+        main_layout.addWidget(self.q_input)
+
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        # Cancel button
+        cancel_button = QPushButton("Cancel")
+        cancel_button.setMinimumWidth(80)
+        cancel_button.setStyleSheet(UIStyles.dialog_close_button())
+        cancel_button.clicked.connect(self.reject)
+
+        # OK button
+        ok_button = QPushButton("OK")
+        ok_button.setMinimumWidth(80)
+        ok_button.setStyleSheet(UIStyles.button_analyze())
+        ok_button.clicked.connect(self.on_ok_clicked)
+        ok_button.setDefault(True)
+
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(ok_button)
+        main_layout.addLayout(button_layout)
+
+    def on_ok_clicked(self):
+        """Handle OK button click"""
+        q_text = self.q_input.text().strip()
+        logger.debug(f"Q number input received: '{q_text}'")
+
+        # Validate Q number format
+        if not q_text:
+            logger.warning("User attempted to submit empty Q number")
+            QMessageBox.warning(self, "Invalid Input", "Please enter a Q number.")
+            return
+
+        # Add Q prefix if not present
+        if not q_text.upper().startswith('Q'):
+            q_text = 'Q' + q_text
+            logger.debug(f"Added Q prefix, new value: '{q_text}'")
+
+        # Check if it's a valid Q number format
+        if not q_text[1:].isdigit():
+            logger.warning(f"Invalid Q number format: '{q_text}'")
+            QMessageBox.warning(self, "Invalid Input", "Please enter a valid Q number (e.g., Q100530634).")
+            return
+
+        self.q_number = q_text
+        logger.info(f"Valid Q number accepted: {q_text}")
+        self.accept()
+
+    def get_q_number(self):
+        """Return the entered Q number"""
+        return self.q_number
+
+
+class WikidataSparqlDialog(QDialog):
+    """Dialog to edit and send SPARQL query to Wikidata"""
+
+    def __init__(self, q_number, parent=None):
+        super(WikidataSparqlDialog, self).__init__(parent)
+        self.setWindowTitle("Edit SPARQL Query")
+        self.setModal(True)
+        self.setMinimumSize(600, 400)
+        self.resize(700, 500)
+
+        self.q_number = q_number
+        self.sparql_result = None
+
+        # Create main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
+
+        # Add title label
+        title_label = QLabel(f"SPARQL Query for {q_number}")
+        title_label.setStyleSheet("font-size: 12pt; font-weight: bold;")
+        main_layout.addWidget(title_label)
+
+        # Add description
+        desc_label = QLabel("Edit the SPARQL query below and click 'Send' to execute it:")
+        desc_label.setWordWrap(True)
+        main_layout.addWidget(desc_label)
+
+        # Text editor for SPARQL query
+        self.sparql_editor = QTextEdit()
+        self.sparql_editor.setStyleSheet("font-family: 'Courier New', monospace; font-size: 10pt; padding: 5px;")
+
+        # Set default SPARQL query with the Q number
+        default_query = f"""#defaultView:Map
+SELECT ?item ?itemLabel ?geo WHERE {{
+  ?item wdt:P361 wd:{q_number};
+    wdt:P31 wd:Q72617071;
+    wdt:P625 ?geo.
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }}
+}}"""
+        self.sparql_editor.setPlainText(default_query)
+        main_layout.addWidget(self.sparql_editor)
+
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        # Cancel button
+        cancel_button = QPushButton("Cancel")
+        cancel_button.setMinimumWidth(80)
+        cancel_button.setStyleSheet(UIStyles.dialog_close_button())
+        cancel_button.clicked.connect(self.reject)
+
+        # Send button
+        send_button = QPushButton("Send")
+        send_button.setMinimumWidth(80)
+        send_button.setStyleSheet(UIStyles.button_analyze())
+        send_button.clicked.connect(self.on_send_clicked)
+        send_button.setDefault(True)
+
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(send_button)
+        main_layout.addLayout(button_layout)
+
+    def on_send_clicked(self):
+        """Handle Send button click - execute SPARQL query"""
+        sparql_query = self.sparql_editor.toPlainText().strip()
+
+        if not sparql_query:
+            QMessageBox.warning(self, "Invalid Query", "Please enter a SPARQL query.")
+            logger.warning("User attempted to send empty SPARQL query")
+            return
+
+        try:
+            # Import requests library for HTTP requests
+            import requests
+            import json
+
+            # Wikidata SPARQL endpoint
+            endpoint_url = "https://query.wikidata.org/sparql"
+
+            logger.info(f"Executing SPARQL query for Q number: {self.q_number}")
+            logger.debug(f"SPARQL query:\n{sparql_query}")
+
+            # Show progress message
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+
+            # Execute SPARQL query
+            headers = {
+                'Accept': 'application/sparql-results+json',
+                'User-Agent': 'LandTalkAI/1.0'
+            }
+
+            response = requests.get(
+                endpoint_url,
+                params={'query': sparql_query, 'format': 'json'},
+                headers=headers,
+                timeout=30
+            )
+
+            QApplication.restoreOverrideCursor()
+
+            if response.status_code == 200:
+                result_data = response.json()
+                self.sparql_result = result_data
+                num_results = len(result_data.get('results', {}).get('bindings', []))
+                logger.info(f"SPARQL query executed successfully. Results: {num_results} items")
+                logger.debug(f"SPARQL result data: {json.dumps(result_data, indent=2)}")
+                self.accept()
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Query Failed",
+                    f"SPARQL query failed with status code {response.status_code}:\n{response.text[:200]}"
+                )
+                logger.error(f"SPARQL query failed: {response.status_code} - {response.text}")
+
+        except ImportError:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(
+                self,
+                "Missing Library",
+                "The 'requests' library is required to execute SPARQL queries.\nPlease install it using: pip install requests"
+            )
+            logger.error("requests library not available for SPARQL queries")
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to execute SPARQL query:\n{str(e)}"
+            )
+            logger.error(f"Error executing SPARQL query: {str(e)}")
+
+    def get_sparql_result(self):
+        """Return the SPARQL query result"""
+        return self.sparql_result
+
+
 class LandTalkDockWidget(QDockWidget):
     """Dock widget for interactive chat conversation with LandTalk AI"""
 
@@ -493,20 +718,17 @@ class LandTalkDockWidget(QDockWidget):
         self.ai_model_label.setStyleSheet(UIStyles.label_input_control())
 
         self.ai_model_combo = QComboBox()
-        self.ai_model_combo.addItem("gemini-2.5-flash-lite", "gemini-2.5-flash-lite")
         self.ai_model_combo.addItem("gemini-2.5-pro", "gemini-2.5-pro")
         self.ai_model_combo.addItem("gemini-2.5-flash", "gemini-2.5-flash")
         self.ai_model_combo.addItem("gemini-robotics-er-1.5-preview (recommended)", "gemini-robotics-er-1.5-preview")
+        self.ai_model_combo.addItem("gemini-3-flash-preview (recommended)", "gemini-3-flash-preview")
         self.ai_model_combo.addItem("gemini-3-pro-preview", "gemini-3-pro-preview")
+        self.ai_model_combo.addItem("gpt-5.2", "gpt-5.2")
         self.ai_model_combo.addItem("gpt-5.1-mini", "gpt-5.1-mini")
         self.ai_model_combo.addItem("gpt-5.1-nano", "gpt-5.1-nano")
-        self.ai_model_combo.addItem("gpt-5.1", "gpt-5.1")
-        self.ai_model_combo.addItem("gpt-5-nano", "gpt-5-nano")
-        self.ai_model_combo.addItem("gpt-5-mini", "gpt-5-mini")
-        self.ai_model_combo.addItem("gpt-5", "gpt-5")
 
         # Select gemini-robotics by default
-        idx = self.ai_model_combo.findData("gemini-robotics-er-1.5-preview")
+        idx = self.ai_model_combo.findData("gemini-3-flash-preview")
         if idx != -1:
             self.ai_model_combo.setCurrentIndex(idx)
         else:
@@ -682,15 +904,29 @@ class LandTalkDockWidget(QDockWidget):
         input_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         # Examples button, currently disabled
-        #self.add_image_button = QPushButton("Examples")
-        #self.add_image_button.setMaximumWidth(80)
-        #self.add_image_button.setMaximumHeight(20)
-        #self.add_image_button.setToolTip("Manage example images")
-        #self.add_image_button.setStyleSheet(UIStyles.button_analyze())  # Reuse analyze button style
-        #self.add_image_button.clicked.connect(self.on_examples_button_clicked)
+        self.add_image_button = QPushButton("Add examples")
+        self.add_image_button.setMaximumWidth(90)
+        self.add_image_button.setMaximumHeight(20)
+        self.add_image_button.setToolTip("Manage example images")
+        self.add_image_button.setStyleSheet(UIStyles.button_analyze())  # Reuse analyze button style
+        self.add_image_button.clicked.connect(self.on_examples_button_clicked)
+
+        # Wikidata button
+        self.wikidata_button = QPushButton("Wikidata")
+        self.wikidata_button.setMaximumWidth(90)
+        self.wikidata_button.setMaximumHeight(20)
+        self.wikidata_button.setToolTip("Query Wikidata and add results to AI context")
+        self.wikidata_button.setStyleSheet(UIStyles.button_analyze())  # Reuse analyze button style
+        self.wikidata_button.clicked.connect(self.on_wikidata_button_clicked)
 
         label_layout.addWidget(input_label)
-        #label_layout.addWidget(self.add_image_button) # currently disabled
+
+        # Conditionally add buttons based on feature flags
+        if PluginConstants.ENABLE_ADD_EXAMPLES_BUTTON:
+            label_layout.addWidget(self.add_image_button)
+        if PluginConstants.ENABLE_WIKIDATA_BUTTON:
+            label_layout.addWidget(self.wikidata_button)
+
         label_layout.addStretch()
 
         input_section.addLayout(label_layout)
@@ -715,7 +951,6 @@ class LandTalkDockWidget(QDockWidget):
         self.send_button.clicked.connect(self.send_message_to_selected_ai)
 
         input_and_button_layout.addWidget(self.prompt_text)
-        input_and_button_layout.addStretch()
         input_and_button_layout.addWidget(self.send_button)
         input_section.addLayout(input_and_button_layout)
 
@@ -803,7 +1038,7 @@ class LandTalkDockWidget(QDockWidget):
             # Update resolution dropdown to match current resolution
             if ground_resolution and hasattr(self, 'resolution_combo'):
                 # Find the closest matching resolution in the dropdown
-                resolutions = [0.25, 0.5, 1.0, 5.0, 10.0, 100.0]
+                resolutions = [0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 100.0]
                 closest_index = 0
                 min_diff = abs(ground_resolution - resolutions[0])
 
@@ -1352,6 +1587,105 @@ class LandTalkDockWidget(QDockWidget):
             logger.error(f"Error opening example images dialog: {str(e)}")
             QMessageBox.warning(self, "Error", f"Failed to open example images dialog: {str(e)}")
 
+    def on_wikidata_button_clicked(self):
+        """Handle Wikidata button click to query Wikidata and add results to AI context"""
+        logger.info("Wikidata button clicked - starting Wikidata query workflow")
+
+        try:
+            # Step 1: Show Q number input dialog
+            logger.debug("Opening Q number input dialog")
+            q_dialog = WikidataQNumberDialog(self)
+            if q_dialog.exec() == QDialog.DialogCode.Accepted:
+                q_number = q_dialog.get_q_number()
+                if not q_number:
+                    logger.warning("Q number dialog accepted but no Q number returned")
+                    return
+
+                logger.info(f"User entered Q number: {q_number}")
+
+                # Step 2: Show SPARQL editor dialog with the Q number
+                logger.debug(f"Opening SPARQL editor dialog for Q number: {q_number}")
+                sparql_dialog = WikidataSparqlDialog(q_number, self)
+                if sparql_dialog.exec() == QDialog.DialogCode.Accepted:
+                    sparql_result = sparql_dialog.get_sparql_result()
+                    if sparql_result:
+                        # Step 3: Process and format the results
+                        logger.info(f"SPARQL dialog accepted with results for Q number: {q_number}")
+                        self.process_wikidata_results(sparql_result, q_number)
+                        logger.info("Wikidata workflow completed successfully - results processed and added to context")
+                    else:
+                        logger.warning("SPARQL dialog accepted but no results returned")
+                else:
+                    logger.info("User cancelled SPARQL editor dialog")
+            else:
+                logger.info("User cancelled Q number input dialog")
+
+        except Exception as e:
+            logger.error(f"Error in Wikidata query workflow: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Failed to process Wikidata query: {str(e)}")
+
+    def process_wikidata_results(self, sparql_result, q_number):
+        """Process SPARQL results and add them to the AI query context"""
+        try:
+            logger.info(f"Processing Wikidata results for Q number: {q_number}")
+
+            # Extract bindings from SPARQL result
+            bindings = sparql_result.get('results', {}).get('bindings', [])
+            logger.debug(f"Extracted {len(bindings)} bindings from SPARQL result")
+
+            if not bindings:
+                logger.warning(f"No results found for Q number: {q_number}")
+                QMessageBox.information(
+                    self,
+                    "No Results",
+                    f"The SPARQL query for {q_number} returned no results."
+                )
+                return
+
+            # Format results as a readable text for AI context
+            formatted_results = f"\n\n--- Wikidata Query Results for {q_number} ---\n"
+            formatted_results += f"Found {len(bindings)} items:\n\n"
+
+            for idx, binding in enumerate(bindings, 1):
+                # Extract common fields (item, itemLabel, geo)
+                item = binding.get('item', {}).get('value', 'N/A')
+                item_label = binding.get('itemLabel', {}).get('value', 'N/A')
+                geo = binding.get('geo', {}).get('value', 'N/A')
+
+                logger.debug(f"Item {idx}: {item_label} | {item} | {geo}")
+
+                formatted_results += f"{idx}. {item_label}\n"
+                formatted_results += f"   - Item: {item}\n"
+                formatted_results += f"   - Coordinates: {geo}\n\n"
+
+            logger.info(f"Formatted results (length: {len(formatted_results)} chars):\n{formatted_results}")
+
+            # Append the formatted results to the current prompt text
+            current_text = self.prompt_text.toPlainText()
+            if current_text:
+                logger.debug(f"Appending to existing prompt text (current length: {len(current_text)} chars)")
+                new_text = current_text + "\n" + formatted_results
+            else:
+                logger.debug("Setting formatted results as new prompt text")
+                new_text = formatted_results
+
+            self.prompt_text.setPlainText(new_text)
+
+            # Show success message
+            QMessageBox.information(
+                self,
+                "Wikidata Results Added",
+                f"Successfully added {len(bindings)} Wikidata results to your message.\n\n"
+                f"The results will be sent to the AI along with your next query."
+            )
+
+        except Exception as e:
+            logger.error(f"Error processing Wikidata results for {q_number}: {str(e)}")
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"Failed to process Wikidata results:\n{str(e)}"
+            )
 
     def clear_uploaded_images(self):
         """Clear all uploaded images"""
