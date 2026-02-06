@@ -653,13 +653,27 @@ class LandTalkPlugin:
 
             self.map_tool = None
 
-    def capture_map_image(self):
-        """Capture the selected area of the map as an image at fixed ground resolution"""
+    def capture_map_image(self, preserve_extent=False):
+        """Capture the selected area of the map as an image at fixed ground resolution
+
+        Args:
+            preserve_extent: If True and a previous capture exists, use the stored map extent
+                           instead of re-converting from screen coordinates. This is essential
+                           when resolution changes, as the screen-to-map conversion depends on
+                           the current canvas view which may have changed.
+        """
+        # Get existing extent before clearing (if we need to preserve it)
+        existing_extent = None
+        if preserve_extent and self.capture_state.has_capture():
+            existing_extent = self.capture_state.extent
+            logger.info("Preserving existing map extent for resolution change")
+
         # Reset stored coordinates
         self.capture_state.clear()
 
         # Use the map renderer to capture the image
-        result = self.map_renderer.capture_map_image(self.selected_rectangle)
+        # Pass existing_extent if we're preserving the map area (e.g., resolution change)
+        result = self.map_renderer.capture_map_image(self.selected_rectangle, existing_extent)
         if result[0] is None:  # encoded_image is None
             return None
 
@@ -724,7 +738,7 @@ class LandTalkPlugin:
         # Log cleanup
         logger.info("Selection rectangle removed")
 
-    def _create_query_extent_layer(self, ai_provider):
+    def _create_query_extent_layer(self, ai_provider, model_name=None):
         """Create a layer with only the query extent bounding box"""
         bbox_features_data = [{
             'object_type': 'query_extent',
@@ -738,16 +752,18 @@ class LandTalkPlugin:
         extent, _, _, width, height, _ = self.capture_state.get_all()
         self.layer_manager.create_single_layer_with_features(
             bbox_features_data, ai_provider,
-            extent, width, height
+            extent, width, height,
+            model_name=model_name
         )
 
     # layer handling functions
-    def process_json_and_create_layers(self, my_json, ai_provider):
+    def process_json_and_create_layers(self, my_json, ai_provider, model_name=None):
         """
         Process JSON data and create a single memory vector layer with all detected objects in the LandTalk.ai group.
 
         :param my_json: JSON data extracted from AI response
         :param ai_provider: String indicating the AI provider ('gemini' or 'gpt')
+        :param model_name: Full model name as shown in the model widget
         """
         logger.info(f"process_json_and_create_layers called with ai_provider: {ai_provider}")
         logger.info(f"JSON data type: {type(my_json)}")
@@ -771,7 +787,8 @@ class LandTalkPlugin:
             if features_data:
                 self.layer_manager.create_single_layer_with_features(
                     features_data, ai_provider,
-                    extent, width, height
+                    extent, width, height,
+                    model_name=model_name
                 )
 
                 # Create and display success message
@@ -785,7 +802,7 @@ class LandTalkPlugin:
                 )
             else:
                 # If no analysis results, still create a layer with just the bounding box
-                self._create_query_extent_layer(ai_provider)
+                self._create_query_extent_layer(ai_provider, model_name)
 
                 # Create and display warning message
                 warning_msg = MessageFormatter.format_warning_message(

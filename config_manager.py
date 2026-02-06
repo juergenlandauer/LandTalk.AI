@@ -33,9 +33,11 @@ and system prompts.
 
 import os
 import json
+from qgis.PyQt.QtCore import QSettings
 from qgis.PyQt.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QMessageBox
 from .logging import logger
 from .ai_worker import ApiKeyDialog
+from .constants import PluginConstants
 
 
 class PluginConfigManager:
@@ -52,7 +54,6 @@ class PluginConfigManager:
         self.iface = iface
         
         # File paths
-        self.keys_file = os.path.join(plugin_dir, 'keys.txt')
         self.settings_file = os.path.join(plugin_dir, 'settings.txt')
         self.system_prompt_file = os.path.join(plugin_dir, 'systemprompt.txt')
         
@@ -76,7 +77,10 @@ class PluginConfigManager:
 
         # Layer persistence mode: 'auto_save', 'temporary', or 'prompt_on_close'
         self.layer_persistence_mode = 'auto_save'  # Default to auto-save for beginners
-        
+
+        # Wikidata response truncation limit (loaded from constants)
+        self.wikidata_response_max_chars = PluginConstants.WIKIDATA_RESPONSE_MAX_CHARS
+
         # System prompt (builtin fallback)
         self.system_prompt = "You are an expert in landscape analysis and geography."
         # New: keep separate default and user override files.
@@ -104,35 +108,39 @@ class PluginConfigManager:
         self.load_system_prompt()
     
     def load_keys(self):
-        """Load API keys from keys.txt file if it exists"""
-        if os.path.exists(self.keys_file):
+        """Load API keys from QSettings (with one-time migration from legacy keys.txt)"""
+        settings = QSettings()
+
+        # One-time migration from legacy keys.txt
+        legacy_keys_file = os.path.join(self.plugin_dir, 'keys.txt')
+        if os.path.exists(legacy_keys_file):
             try:
-                with open(self.keys_file, 'r') as f:
+                with open(legacy_keys_file, 'r') as f:
                     keys_data = json.load(f)
-                    self.gemini_api_key = keys_data.get('gemini', '')
-                    self.gpt_api_key = keys_data.get('gpt', '')
-                logger.info("API keys loaded from file")
+                settings.setValue("LandTalkAI/gemini_api_key", keys_data.get('gemini', ''))
+                settings.setValue("LandTalkAI/gpt_api_key", keys_data.get('gpt', ''))
+                os.remove(legacy_keys_file)
+                logger.info("API keys migrated from keys.txt to QSettings and legacy file removed")
             except Exception as e:
-                logger.warning(f"Error loading API keys: {str(e)}")
-        else:
-            logger.info("No keys file found")
+                logger.warning(f"Error migrating API keys from keys.txt: {str(e)}")
+
+        self.gemini_api_key = settings.value("LandTalkAI/gemini_api_key", "", type=str)
+        self.gpt_api_key = settings.value("LandTalkAI/gpt_api_key", "", type=str)
+        logger.info("API keys loaded from QSettings")
     
     def save_keys(self):
-        """Save API keys to keys.txt file"""
+        """Save API keys to QSettings"""
         try:
-            keys_data = {
-                'gemini': self.gemini_api_key,
-                'gpt': self.gpt_api_key
-            }
-            with open(self.keys_file, 'w') as f:
-                json.dump(keys_data, f, indent=2)
-            logger.info("API keys saved to file")
+            settings = QSettings()
+            settings.setValue("LandTalkAI/gemini_api_key", self.gemini_api_key)
+            settings.setValue("LandTalkAI/gpt_api_key", self.gpt_api_key)
+            logger.info("API keys saved to QSettings")
         except Exception as e:
             logger.error(f"Error saving API keys: {str(e)}")
             QMessageBox.warning(
                 self.iface.mainWindow(),
                 "Warning",
-                f"Could not save API keys to file: {str(e)}"
+                f"Could not save API keys: {str(e)}"
             )
     
     def load_settings(self):
@@ -147,17 +155,20 @@ class PluginConfigManager:
                     self.last_selected_model = settings_data.get('last_selected_model', '')
                     self.show_tutorial = settings_data.get('show_tutorial', True)
                     self.layer_persistence_mode = settings_data.get('layer_persistence_mode', 'auto_save')
+                    self.wikidata_response_max_chars = settings_data.get('wikidata_response_max_chars', PluginConstants.WIKIDATA_RESPONSE_MAX_CHARS)
                 logger.info(f"Plugin settings loaded from file. Confidence threshold: {self.confidence_threshold}, Last model: {self.last_selected_model}, Layer persistence: {self.layer_persistence_mode}")
             except Exception as e:
                 logger.warning(f"Error loading plugin settings: {str(e)}")
                 self.confidence_threshold = self.default_confidence_threshold
                 self.last_selected_model = ''  # No hard-coded default; UI determines default
                 self.layer_persistence_mode = 'auto_save'
+                self.wikidata_response_max_chars = PluginConstants.WIKIDATA_RESPONSE_MAX_CHARS
         else:
             logger.info("No settings file found, using default values")
             self.confidence_threshold = self.default_confidence_threshold
             self.last_selected_model = ''  # No hard-coded default; UI determines default
             self.layer_persistence_mode = 'auto_save'
+            self.wikidata_response_max_chars = PluginConstants.WIKIDATA_RESPONSE_MAX_CHARS
     
     def save_settings(self):
         """Save plugin settings to settings.txt file"""
@@ -168,7 +179,8 @@ class PluginConfigManager:
                 'auto_clear_on_model_change': self.auto_clear_on_model_change,
                 'last_selected_model': self.last_selected_model,
                 'show_tutorial': self.show_tutorial,
-                'layer_persistence_mode': self.layer_persistence_mode
+                'layer_persistence_mode': self.layer_persistence_mode,
+                'wikidata_response_max_chars': self.wikidata_response_max_chars
             }
             with open(self.settings_file, 'w') as f:
                 json.dump(settings_data, f, indent=2)
@@ -429,3 +441,20 @@ class PluginConfigManager:
             logger.info(f"Layer persistence mode set to: {mode}")
         else:
             logger.warning(f"Invalid layer persistence mode: {mode}")
+
+    def get_wikidata_response_max_chars(self):
+        """Get the Wikidata response maximum character limit"""
+        return self.wikidata_response_max_chars
+
+    def set_wikidata_response_max_chars(self, max_chars):
+        """Set the Wikidata response maximum character limit
+
+        Args:
+            max_chars: Maximum number of characters to include in response (default: 5000)
+        """
+        if isinstance(max_chars, int) and max_chars > 0:
+            self.wikidata_response_max_chars = max_chars
+            self.save_settings()
+            logger.info(f"Wikidata response max chars set to: {max_chars}")
+        else:
+            logger.warning(f"Invalid wikidata_response_max_chars value: {max_chars}")

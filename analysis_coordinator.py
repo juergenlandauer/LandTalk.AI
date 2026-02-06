@@ -64,9 +64,17 @@ class AnalysisCoordinator:
         # Deselect all existing LandTalk.ai layers to ensure only the most recent one is selected
         self.plugin.layer_manager.update_ai_analysis_visibility(current_group_name=None)
 
-        # Get prompt text from UI
-        prompt_text = self._get_prompt_text()
-        logger.info(f"Prompt text: {prompt_text}")
+        # Get user input text (without wikidata context)
+        user_input_text = self.plugin.dock_widget.prompt_text.toPlainText().strip()
+
+        # Use default prompt if user didn't enter anything
+        if not user_input_text:
+            user_input_text = PluginConstants.DEFAULT_ANALYSIS_PROMPT
+            logger.info(f"No prompt provided, using default: {user_input_text}")
+
+        # Get full prompt text (with wikidata context if available)
+        prompt_text = self._get_prompt_text_with_context(user_input_text)
+        logger.info(f"Full prompt text length: {len(prompt_text)} chars")
 
         # Validate prerequisites
         is_valid, error_message = self._validate_prerequisites()
@@ -80,12 +88,15 @@ class AnalysisCoordinator:
             QMessageBox.warning(self.plugin.dock_widget, "Error", prompt_modifier)  # Error message is in second return value
             return False
 
-        # Modify prompt if needed
+        # Modify user input if needed for display
+        display_text = user_input_text
         if prompt_modifier:
+            display_text = f"{prompt_modifier}{user_input_text}"
+            # Also add modifier to full prompt
             prompt_text = f"{prompt_modifier}{prompt_text}"
 
-        # Add user message to chat display
-        self.plugin.dock_widget.add_user_message(prompt_text)
+        # Add user message to chat display (only show user input, not wikidata context)
+        self.plugin.dock_widget.add_user_message(display_text)
 
         # Clear the input field only (keep uploaded images until QGIS closes)
         self.plugin.dock_widget.prompt_text.clear()
@@ -93,11 +104,14 @@ class AnalysisCoordinator:
         # Set current AI provider for conversation continuity
         self.plugin.dock_widget.current_ai_provider = ai_provider
 
+        # Store the model name (display text) for use when creating layers
+        self.plugin.dock_widget.current_model_name = self.plugin.dock_widget.ai_model_combo.currentText()
+
         # Get chat context for the AI call
         chat_context = self.plugin.dock_widget.get_chat_context()
 
-        # Add the user message to chat history
-        self.plugin.dock_widget.add_to_chat_history('user', prompt_text)
+        # Add the user message to chat history (only user input, not wikidata context)
+        self.plugin.dock_widget.add_to_chat_history('user', display_text)
 
         # Get the appropriate API key
         api_key = self._get_api_key(ai_provider)
@@ -124,6 +138,7 @@ class AnalysisCoordinator:
         try:
             dock_widget = self.plugin.dock_widget
             ai_provider = dock_widget.current_ai_provider if hasattr(dock_widget, 'current_ai_provider') else "unknown"
+            model_name = dock_widget.current_model_name if hasattr(dock_widget, 'current_model_name') else None
 
             if result["success"]:
                 # Process JSON first if found
@@ -131,7 +146,7 @@ class AnalysisCoordinator:
                 if result["json_data"]:
                     provider_name = ai_provider.upper() if ai_provider else "UNKNOWN"
                     logger.info(f"Processing {provider_name} JSON data: {result['json_data']}")
-                    self.plugin.process_json_and_create_layers(result["json_data"], ai_provider)
+                    self.plugin.process_json_and_create_layers(result["json_data"], ai_provider, model_name)
                     json_data = result["json_data"]
 
                 # Add AI response to chat and history with JSON data
@@ -142,6 +157,29 @@ class AnalysisCoordinator:
                 if result["error_type"] == "interrupted":
                     # Don't show error message for interruption, it's already handled by the interrupt method
                     logger.info("Request was interrupted by user")
+                elif result["error_type"] == "model_timeout":
+                    logger.info("Model timeout - showing Wait/Cancel dialog")
+                    msg_box = QMessageBox(dock_widget)
+                    msg_box.setWindowTitle("Model Timeout")
+                    msg_box.setText("Model seems to have timed out. Wait or cancel?")
+                    msg_box.setIcon(QMessageBox.Warning)
+                    wait_button = msg_box.addButton("Wait", QMessageBox.AcceptRole)
+                    msg_box.addButton("Cancel", QMessageBox.RejectRole)
+                    msg_box.setDefaultButton(wait_button)
+                    msg_box.exec_()
+                    if msg_box.clickedButton() == wait_button and hasattr(self, '_last_worker_params'):
+                        logger.info("User chose to wait after timeout - retrying request")
+                        self._start_worker(*self._last_worker_params)
+                        return  # Skip cleanup - new worker is running
+                    else:
+                        logger.info("User cancelled after timeout")
+                elif result["error_type"] == "model_overloaded":
+                    logger.info("Model overloaded (429/500/503) - showing dialog")
+                    QMessageBox.warning(
+                        dock_widget,
+                        "Model Overloaded",
+                        "The AI model is overloaded. Wait some time and try again or choose another model."
+                    )
                 elif result["error_type"] in ["input_required", "api_key_required"]:
                     QMessageBox.warning(dock_widget, "Error", result["error"])
                 else:
@@ -150,7 +188,7 @@ class AnalysisCoordinator:
                     # Even on error, try to create a layer with the bounding box if we captured an image
                     if result.get("image_data"):
                         try:
-                            self._create_error_extent_layer(ai_provider)
+                            self._create_error_extent_layer(ai_provider, model_name)
                         except Exception:
                             pass  # Don't let bounding box creation errors mask the original error
 
@@ -218,19 +256,25 @@ class AnalysisCoordinator:
             return "gpt"
         return None
 
-    def _get_prompt_text(self):
+    def _get_prompt_text_with_context(self, user_input_text):
         """
-        Get prompt text from UI with default fallback.
+        Get full prompt text with wikidata context prepended if available.
+
+        Args:
+            user_input_text: The user's input text from the UI
 
         Returns:
-            str: Prompt text
+            str: Full prompt text (including wikidata context if available)
         """
-        prompt_text = self.plugin.dock_widget.prompt_text.toPlainText().strip()
+        prompt_text = user_input_text
 
-        # Use default prompt if user didn't enter anything
-        if not prompt_text:
-            prompt_text = PluginConstants.DEFAULT_ANALYSIS_PROMPT
-            logger.info(f"No prompt provided, using default: {prompt_text}")
+        # Prepend wikidata context if available (should come before user query)
+        if hasattr(self.plugin.dock_widget, 'wikidata_context') and self.plugin.dock_widget.wikidata_context:
+            wikidata_context = self.plugin.dock_widget.wikidata_context
+            prompt_text = f"{wikidata_context}\n\n{prompt_text}"
+            logger.info(f"Added wikidata context ({len(wikidata_context)} chars) to prompt")
+            # Clear the context after using it
+            self.plugin.dock_widget.wikidata_context = ""
 
         return prompt_text
 
@@ -327,6 +371,9 @@ class AnalysisCoordinator:
             api_key: API key for the provider
             all_images: Image data to analyze
         """
+        # Store parameters for potential retry
+        self._last_worker_params = (prompt_text, chat_context, model, api_key, all_images)
+
         # Set wait cursor and disable send button
         QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor if hasattr(Qt, 'CursorShape') else 4))
 
@@ -355,12 +402,13 @@ class AnalysisCoordinator:
         # Start the worker thread
         self.ai_worker.start()
 
-    def _create_error_extent_layer(self, ai_provider):
+    def _create_error_extent_layer(self, ai_provider, model_name=None):
         """
         Create a layer with only the bounding box feature for errors.
 
         Args:
             ai_provider: AI provider name
+            model_name: Full model name as shown in the model widget
         """
         provider_name = ai_provider.upper() if ai_provider else "UNKNOWN"
         bbox_features_data = [{
@@ -375,5 +423,6 @@ class AnalysisCoordinator:
         extent, _, _, width, height, _ = self.plugin.capture_state.get_all()
         self.plugin.layer_manager.create_single_layer_with_features(
             bbox_features_data, ai_provider,
-            extent, width, height
+            extent, width, height,
+            model_name=model_name
         )

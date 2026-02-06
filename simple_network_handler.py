@@ -63,7 +63,7 @@ class SimpleNetworkHandler:
         except requests.exceptions.Timeout:
             error_msg = f"Request timed out after {self.timeout} seconds"
             logger.error(error_msg)
-            logger.error(f"Full request - URL: {url}, Headers: {headers}, Data: {json.dumps(data)}")
+            logger.error(f"Full request - URL: {url}")
             return {
                 'success': False,
                 'error': error_msg,
@@ -73,7 +73,7 @@ class SimpleNetworkHandler:
         except requests.exceptions.ConnectionError as e:
             error_msg = f"Connection error: {str(e)}"
             logger.error(error_msg)
-            logger.error(f"Full request - URL: {url}, Headers: {headers}, Data: {json.dumps(data)}")
+            logger.error(f"Full request - URL: {url}")
             return {
                 'success': False,
                 'error': error_msg,
@@ -83,7 +83,7 @@ class SimpleNetworkHandler:
         except requests.exceptions.HTTPError as e:
             error_msg = f"HTTP error {response.status_code}: {str(e)}"
             logger.error(error_msg)
-            logger.error(f"Full request - URL: {url}, Headers: {headers}, Data: {json.dumps(data)}")
+            logger.error(f"Full request - URL: {url}")
             return {
                 'success': False,
                 'error': error_msg,
@@ -93,7 +93,7 @@ class SimpleNetworkHandler:
         except requests.exceptions.RequestException as e:
             error_msg = f"Request failed: {str(e)}"
             logger.error(error_msg)
-            logger.error(f"Full request - URL: {url}, Headers: {headers}, Data: {json.dumps(data)}")
+            logger.error(f"Full request - URL: {url}")
             return {
                 'success': False,
                 'error': error_msg,
@@ -103,7 +103,7 @@ class SimpleNetworkHandler:
         except json.JSONDecodeError as e:
             error_msg = f"Invalid JSON response: {str(e)}"
             logger.error(error_msg)
-            logger.error(f"Full request - URL: {url}, Headers: {headers}, Data: {json.dumps(data)}")
+            logger.error(f"Full request - URL: {url}")
             return {
                 'success': False,
                 'error': error_msg,

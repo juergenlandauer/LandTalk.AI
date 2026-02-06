@@ -115,9 +115,13 @@ class ImagePopupDialog(QDialog):
             
             # Set the pixmap to the label
             self.image_label.setPixmap(pixmap)
-            
-            # Resize dialog to fit image if it's smaller than current size
+
+            # Get image size and update window title
             image_size = pixmap.size()
+            total_pixels = image_size.width() * image_size.height()
+            self.setWindowTitle(f"Captured Image - {image_size.width():,} x {image_size.height():,} pixels ({total_pixels:,} total)")
+
+            # Resize dialog to fit image if it's smaller than current size
             dialog_size = self.size()
             
             # Add some padding for the scrollbars and margins
@@ -463,18 +467,34 @@ class WikidataSparqlDialog(QDialog):
         self.sparql_editor.setStyleSheet("font-family: 'Courier New', monospace; font-size: 10pt; padding: 5px;")
 
         # Set default SPARQL query with the Q number
-        default_query = f"""#defaultView:Map
-SELECT ?item ?itemLabel ?geo WHERE {{
-  ?item wdt:P361 wd:{q_number};
-    wdt:P31 wd:Q72617071;
-    wdt:P625 ?geo.
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }}
-}}"""
+        default_query = f"""PREFIX schema: <http://schema.org/>
+
+SELECT DISTINCT ?article_en WHERE {{
+  ?item wdt:P31/wdt:P279* wd:{q_number} .
+
+  ?article_any schema:about ?item ;
+               schema:isPartOf ?wiki .
+  FILTER(CONTAINS(STR(?wiki), "wikipedia.org"))
+
+  OPTIONAL {{
+    ?article_en schema:about ?item ;
+                schema:isPartOf <https://en.wikipedia.org/> .
+  }}
+}}
+LIMIT 100"""
         self.sparql_editor.setPlainText(default_query)
         main_layout.addWidget(self.sparql_editor)
 
         # Button layout
         button_layout = QHBoxLayout()
+
+        # Clear button (on the left)
+        clear_button = QPushButton("Clear")
+        clear_button.setMinimumWidth(80)
+        clear_button.setStyleSheet(UIStyles.dialog_close_button())
+        clear_button.clicked.connect(self.on_clear_clicked)
+        button_layout.addWidget(clear_button)
+
         button_layout.addStretch()
 
         # Cancel button
@@ -493,6 +513,26 @@ SELECT ?item ?itemLabel ?geo WHERE {{
         button_layout.addWidget(cancel_button)
         button_layout.addWidget(send_button)
         main_layout.addLayout(button_layout)
+
+    def on_clear_clicked(self):
+        """Handle Clear button click - reset query to empty state"""
+        # Show confirmation dialog
+        reply = QMessageBox.question(
+            self,
+            "Clear Query",
+            "Are you sure you want to clear the SPARQL query?\n\nThis will remove the Q number and all query text.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # Clear the editor
+            self.sparql_editor.clear()
+            # Clear the Q number
+            self.q_number = None
+            # Update the title to reflect no Q number
+            self.setWindowTitle("Edit SPARQL Query - Cleared")
+            logger.info("SPARQL query cleared by user")
 
     def on_send_clicked(self):
         """Handle Send button click - execute SPARQL query"""
@@ -537,24 +577,18 @@ SELECT ?item ?itemLabel ?geo WHERE {{
                 self.sparql_result = result_data
                 num_results = len(result_data.get('results', {}).get('bindings', []))
                 logger.info(f"SPARQL query executed successfully. Results: {num_results} items")
-                logger.debug(f"SPARQL result data: {json.dumps(result_data, indent=2)}")
+                result_json = json.dumps(result_data, indent=2)
+                max_chars = PluginConstants.WIKIDATA_RESPONSE_MAX_CHARS
+                logger.debug(f"SPARQL result data: {result_json[:max_chars]}")
                 self.accept()
             else:
                 QMessageBox.warning(
                     self,
                     "Query Failed",
-                    f"SPARQL query failed with status code {response.status_code}:\n{response.text[:200]}"
+                    f"SPARQL query failed with status code {response.status_code}:\n{response.text}"
                 )
                 logger.error(f"SPARQL query failed: {response.status_code} - {response.text}")
 
-        except ImportError:
-            QApplication.restoreOverrideCursor()
-            QMessageBox.critical(
-                self,
-                "Missing Library",
-                "The 'requests' library is required to execute SPARQL queries.\nPlease install it using: pip install requests"
-            )
-            logger.error("requests library not available for SPARQL queries")
         except Exception as e:
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(
@@ -610,6 +644,9 @@ class LandTalkDockWidget(QDockWidget):
 
         # Store uploaded images
         self.uploaded_images = []  # List of tuples (file_path, base64_data)
+
+        # Store wikidata context separately from user input
+        self.wikidata_context = ""
 
     def _configure_dock_features(self):
         """Configure dock widget features with PyQt5/PyQt6 compatibility"""
@@ -1513,14 +1550,17 @@ class LandTalkDockWidget(QDockWidget):
         logger.info(f"Ground resolution changed to {resolution_value:.2f} m/pixel via dropdown")
         
         # Re-capture the image with the new resolution if there's a selected area
-        if (hasattr(self.parent_plugin, 'selected_rectangle') and 
-            self.parent_plugin.selected_rectangle and 
+        if (hasattr(self.parent_plugin, 'selected_rectangle') and
+            self.parent_plugin.selected_rectangle and
             self.thumbnail_widget.isVisible()):
-            
+
             logger.info("Re-capturing image with new resolution")
-            
-            # Capture new high-resolution image with updated resolution first
-            captured_image = self.parent_plugin.capture_map_image()
+
+            # Capture new high-resolution image with updated resolution
+            # IMPORTANT: Use preserve_extent=True to keep the same map area
+            # This avoids re-converting from screen coordinates, which could give
+            # different results if the canvas view has changed since selection
+            captured_image = self.parent_plugin.capture_map_image(preserve_extent=True)
             if captured_image:
                 logger.info("High-resolution image re-captured successfully with new resolution")
                 
@@ -1611,7 +1651,8 @@ class LandTalkDockWidget(QDockWidget):
                     if sparql_result:
                         # Step 3: Process and format the results
                         logger.info(f"SPARQL dialog accepted with results for Q number: {q_number}")
-                        self.process_wikidata_results(sparql_result, q_number)
+                        #self.process_wikidata_results(sparql_result, q_number)
+                        self.process_simple_wikidata_results(sparql_result, q_number)
                         logger.info("Wikidata workflow completed successfully - results processed and added to context")
                     else:
                         logger.warning("SPARQL dialog accepted but no results returned")
@@ -1625,7 +1666,7 @@ class LandTalkDockWidget(QDockWidget):
             QMessageBox.warning(self, "Error", f"Failed to process Wikidata query: {str(e)}")
 
     def process_wikidata_results(self, sparql_result, q_number):
-        """Process SPARQL results and add them to the AI query context"""
+        """Process SPARQL results and store them as context (not in UI)"""
         try:
             logger.info(f"Processing Wikidata results for Q number: {q_number}")
 
@@ -1660,22 +1701,16 @@ class LandTalkDockWidget(QDockWidget):
 
             logger.info(f"Formatted results (length: {len(formatted_results)} chars):\n{formatted_results}")
 
-            # Append the formatted results to the current prompt text
-            current_text = self.prompt_text.toPlainText()
-            if current_text:
-                logger.debug(f"Appending to existing prompt text (current length: {len(current_text)} chars)")
-                new_text = current_text + "\n" + formatted_results
-            else:
-                logger.debug("Setting formatted results as new prompt text")
-                new_text = formatted_results
-
-            self.prompt_text.setPlainText(new_text)
+            # Store the wikidata context without showing it in the UI
+            if not hasattr(self, 'wikidata_context'):
+                self.wikidata_context = ""
+            self.wikidata_context = formatted_results
 
             # Show success message
             QMessageBox.information(
                 self,
                 "Wikidata Results Added",
-                f"Successfully added {len(bindings)} Wikidata results to your message.\n\n"
+                f"Successfully added {len(bindings)} Wikidata results to the AI context.\n\n"
                 f"The results will be sent to the AI along with your next query."
             )
 
@@ -1686,6 +1721,192 @@ class LandTalkDockWidget(QDockWidget):
                 "Error",
                 f"Failed to process Wikidata results:\n{str(e)}"
             )
+
+    def process_simple_wikidata_results(self, sparql_result, q_number):
+        """Process SPARQL results and store them as context (not in UI)"""
+        try:
+            import re
+            import json
+            import random
+            import requests
+
+            logger.info(f"Processing simple Wikidata results for Q number: {q_number}")
+
+            # Extract bindings from SPARQL result
+            bindings = sparql_result.get('results', {}).get('bindings', [])
+            logger.debug(f"Extracted {len(bindings)} bindings from SPARQL result")
+
+            if not bindings:
+                logger.warning(f"No results found for Q number: {q_number}")
+                QMessageBox.information(
+                    self,
+                    "No Results",
+                    f"The SPARQL query for {q_number} returned no results."
+                )
+                return
+
+            # Extract Wikipedia URLs from results
+            wikipedia_urls = []
+            for binding in bindings:
+                # Check for article_en field (from our SPARQL query)
+                article_en = binding.get('article_en', {}).get('value', '')
+                if article_en and 'wikipedia.org' in article_en:
+                    wikipedia_urls.append(article_en)
+
+            wikipedia_urls = list(set(wikipedia_urls))  # Remove duplicates
+            logger.info(f"Found {len(wikipedia_urls)} unique Wikipedia URLs")
+
+            # Fetch Wikipedia content if URLs found
+            wikipedia_content = ""
+            if wikipedia_urls:
+                wikipedia_content = self._fetch_wikipedia_content(wikipedia_urls)
+
+            # Convert sparql_result to string
+            result_string = json.dumps(sparql_result)
+
+            # Remove whitespace with length greater than 1 (replace multiple spaces with single space)
+            result_string = re.sub(r'\s{2,}', ' ', result_string)
+
+            logger.info(f"Simple formatted results (length: {len(result_string)} chars)")
+            logger.debug(f"Result string: {result_string[:500]}...")  # Log first 500 chars
+
+            # Store the wikidata context without showing it in the UI
+            # Wikipedia content comes before SPARQL results
+            if not hasattr(self, 'wikidata_context'):
+                self.wikidata_context = ""
+
+            if wikipedia_content:
+                self.wikidata_context = f"{wikipedia_content}\n\n--- SPARQL Results ---\n{result_string}"
+            else:
+                self.wikidata_context = result_string
+
+            # Show success message
+            wiki_msg = f"\nFetched content from {len(wikipedia_urls)} Wikipedia articles." if wikipedia_content else ""
+            QMessageBox.information(
+                self,
+                "Wikidata Results Added",
+                f"Successfully added {len(bindings)} Wikidata results to the AI context.{wiki_msg}\n\n"
+                f"The results will be sent to the AI along with your next query."
+            )
+
+        except Exception as e:
+            logger.error(f"Error processing simple Wikidata results for {q_number}: {str(e)}")
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"Failed to process Wikidata results:\n{str(e)}"
+            )
+
+    def _fetch_wikipedia_content(self, wikipedia_urls):
+        """
+        Fetch text content from Wikipedia URLs.
+
+        Args:
+            wikipedia_urls: List of Wikipedia article URLs
+
+        Returns:
+            str: Concatenated and truncated Wikipedia article text
+        """
+        import random
+        import requests
+        import re
+
+        # Randomly select URLs (up to configured limit)
+        urls_to_fetch = PluginConstants.WIKIPEDIA_URLS_TO_FETCH
+        max_chars = PluginConstants.WIKIPEDIA_CONTENT_MAX_CHARS
+
+        if len(wikipedia_urls) > urls_to_fetch:
+            selected_urls = random.sample(wikipedia_urls, urls_to_fetch)
+            logger.info(f"Randomly selected {urls_to_fetch} URLs from {len(wikipedia_urls)} available")
+        else:
+            selected_urls = wikipedia_urls
+            logger.info(f"Using all {len(selected_urls)} available URLs")
+
+        # Fetch content from each URL
+        all_content = []
+        for url in selected_urls:
+            try:
+                content = self._fetch_single_wikipedia_article(url)
+                if content:
+                    all_content.append(f"--- Article: {url} ---\n{content}")
+                    logger.info(f"Fetched {len(content)} chars from {url}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch {url}: {str(e)}")
+
+        if not all_content:
+            logger.warning("No Wikipedia content could be fetched")
+            return ""
+
+        # Concatenate all content
+        concatenated = "\n\n".join(all_content)
+        logger.info(f"Total concatenated content: {len(concatenated)} chars")
+
+        # Truncate to max characters
+        if len(concatenated) > max_chars:
+            concatenated = concatenated[:max_chars]
+            logger.info(f"Truncated Wikipedia content to {max_chars} chars")
+
+        return concatenated
+
+    def _fetch_single_wikipedia_article(self, url):
+        """
+        Fetch text content from a single Wikipedia article using the API.
+
+        Args:
+            url: Wikipedia article URL
+
+        Returns:
+            str: Article text content or empty string on failure
+        """
+        import requests
+        import re
+
+        try:
+            # Extract article title from URL
+            # URL format: https://en.wikipedia.org/wiki/Article_Title
+            match = re.search(r'wikipedia\.org/wiki/(.+)$', url)
+            if not match:
+                logger.warning(f"Could not extract article title from URL: {url}")
+                return ""
+
+            article_title = match.group(1)
+
+            # Extract language code from URL
+            lang_match = re.search(r'https?://(\w+)\.wikipedia\.org', url)
+            lang = lang_match.group(1) if lang_match else 'en'
+
+            # Use Wikipedia API to get plain text extract
+            api_url = f"https://{lang}.wikipedia.org/w/api.php"
+            params = {
+                'action': 'query',
+                'titles': article_title,
+                'prop': 'extracts',
+                'explaintext': True,  # Get plain text, not HTML
+                'exsectionformat': 'plain',
+                'format': 'json'
+            }
+
+            headers = {
+                'User-Agent': 'LandTalkAI/1.0 (QGIS Plugin)'
+            }
+
+            response = requests.get(api_url, params=params, headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                pages = data.get('query', {}).get('pages', {})
+
+                for page_id, page_data in pages.items():
+                    if page_id != '-1':  # -1 means page not found
+                        extract = page_data.get('extract', '')
+                        return extract
+
+            logger.warning(f"Wikipedia API returned status {response.status_code} for {url}")
+            return ""
+
+        except Exception as e:
+            logger.error(f"Error fetching Wikipedia article {url}: {str(e)}")
+            return ""
 
     def clear_uploaded_images(self):
         """Clear all uploaded images"""

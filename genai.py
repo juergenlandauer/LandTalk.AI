@@ -30,7 +30,8 @@ import base64
 import threading
 import json
 from .logging import logger
-from .simple_network_handler import SimpleNetworkHandler, NetworkError, TimeoutError
+from .simple_network_handler import SimpleNetworkHandler
+from .constants import PluginConstants
 
 # Global variable to control full request/response logging
 FULL_REQUEST = False
@@ -51,7 +52,7 @@ class GenAIHandler:
         self.api_timeout = api_timeout
         self.interrupt_flag = threading.Event()
         self.current_request = None
-        self.network_handler = SimpleNetworkHandler(timeout=api_timeout)
+        self.network_handler = SimpleNetworkHandler(timeout=PluginConstants.API_TIMEOUT)
 
     def interrupt_request(self):
         """Interrupt the current AI request"""
@@ -90,7 +91,7 @@ class GenAIHandler:
                     if 'parts' in content:
                         for part in content['parts']:
                             if 'inline_data' in part:
-                                part['inline_data'] = {"mime_type": part['inline_data'].get('mime_type', 'image/png'), "data": "[IMAGE_DATA_EXCLUDED]"}
+                                part['inline_data'] = {"mime_type": part['inline_data'].get('mime_type', 'image/png'), "data": "<image omitted>"}
         elif provider == "gpt":
             # Remove image URLs from GPT messages
             if 'messages' in sanitized:
@@ -99,7 +100,7 @@ class GenAIHandler:
                         for item in message['content']:
                             if isinstance(item, dict) and item.get('type') == 'image_url':
                                 if 'image_url' in item and 'url' in item['image_url']:
-                                    item['image_url']['url'] = "[IMAGE_DATA_EXCLUDED]"
+                                    item['image_url']['url'] = "<image omitted>"
         
         return sanitized
 
@@ -116,7 +117,7 @@ class GenAIHandler:
                         text = part['text'][:497] + "..." if len(part['text']) > 500 else part['text']
                         logger.info(f"    Part {j+1} [text]: {text}")
                     elif 'inline_data' in part:
-                        logger.info(f"    Part {j+1} [image]: [IMAGE_DATA_EXCLUDED]")
+                        logger.info(f"    Part {j+1} [image]: <image omitted>")
             else:  # gpt
                 role = msg.get('role', 'unknown')
                 content = msg.get('content', '')
@@ -127,7 +128,7 @@ class GenAIHandler:
                             text = part.get('text', '')[:497] + "..." if len(part.get('text', '')) > 500 else part.get('text', '')
                             logger.info(f"    Part {j+1} [text]: {text}")
                         elif isinstance(part, dict) and part.get('type') == 'image_url':
-                            logger.info(f"    Part {j+1} [image]: [IMAGE_DATA_EXCLUDED]")
+                            logger.info(f"    Part {j+1} [image]: <image omitted>")
                 elif isinstance(content, str):
                     text = content[:497] + "..." if len(content) > 500 else content
                     logger.info(f"    Content: {text}")
@@ -180,37 +181,42 @@ class GenAIHandler:
             interrupt_result = self._check_interruption()
             if interrupt_result:
                 return interrupt_result
-            
-            # Use QGIS network handler for proxy support
-            try:
+
+            # Make the API request with timeout-based overload handling
+            while True:
                 network_response = self.network_handler.post_json(url, headers, payload)
 
                 # Check for interruption after the request
                 interrupt_result = self._check_interruption()
                 if interrupt_result:
                     return interrupt_result
-                
+
                 if not network_response['success']:
-                    raise NetworkError(network_response.get('error', 'Unknown network error'))
-                
+                    # Check if this is a timeout (possible overload)
+                    if network_response.get('status_code') is None and 'timed out' in network_response.get('error', '').lower():
+                        logger.warning("Request timed out - model may be overloaded")
+                        return {"success": False, "error": "Request timed out", "error_type": "model_timeout"}
+
+                    # Check for server errors 429/500/503 (model overloaded)
+                    if network_response.get('status_code') in (429, 500, 503):
+                        logger.warning(f"Server error {network_response['status_code']} - model overloaded")
+                        return {"success": False, "error": "Model overloaded", "error_type": "model_overloaded"}
+
+                    # For all other errors, return directly
+                    error_msg = network_response.get('error', 'Unknown network error')
+                    logger.error(f"Network error calling {provider.upper()} API: {error_msg}")
+                    return {"success": False, "error": f"Network error calling {provider.upper()} API: {error_msg}", "error_type": "network_error"}
+
+                # Success
                 response_json = network_response['data']
                 logger.info(f"API response: {response_json}")
-                
+
                 # Log full response if FULL_REQUEST is enabled
                 if FULL_REQUEST:
                     logger.info(f"=== FULL {provider.upper()} RESPONSE ===")
                     logger.info(f"Response: {json.dumps(response_json, indent=2, ensure_ascii=False)}")
                     logger.info(f"=== END FULL {provider.upper()} RESPONSE ===")
-            except NetworkError as e:
-                logger.error(f"Network error occurred while calling {provider.upper()} API: {str(e)}")
-                return {"success": False, "error": f"Network error occurred while calling {provider.upper()} API: {str(e)}", "error_type": "network_error"}
-            except TimeoutError as e:
-                # Check if this was actually an interruption
-                interrupt_result = self._check_interruption()
-                if interrupt_result:
-                    return interrupt_result
-                logger.warning(f"API request to {provider.upper()} timed out after {self.api_timeout} seconds")
-                return {"success": False, "error": f"Request to {provider.upper()} API timed out after {self.api_timeout} seconds. Please try again.", "error_type": "timeout"}
+                break
             
             # Parse provider-specific response
             response = self._parse_gemini_response(response_json) if provider == "gemini" else self._parse_gpt_response(response_json)

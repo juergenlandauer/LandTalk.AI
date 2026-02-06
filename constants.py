@@ -48,3 +48,10 @@ class PluginConstants:
     # UI feature flags
     ENABLE_ADD_EXAMPLES_BUTTON = True  # Show/hide the "Add examples" button
     ENABLE_WIKIDATA_BUTTON = False  # Show/hide the "Wikidata" button
+
+    # Wikidata response truncation limit (in characters)
+    WIKIDATA_RESPONSE_MAX_CHARS = 5000
+
+    # Wikipedia content extraction settings
+    WIKIPEDIA_URLS_TO_FETCH = 5  # Number of Wikipedia URLs to randomly select and fetch
+    WIKIPEDIA_CONTENT_MAX_CHARS = 20000  # Maximum characters for concatenated Wikipedia content

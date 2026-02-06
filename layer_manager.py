@@ -282,6 +282,8 @@ class LayerManager:
             fields.append(QgsField("reason", QVariant.String))
             fields.append(QgsField("confidence", QVariant.Double))
             fields.append(QgsField("ai_provider", QVariant.String))
+            fields.append(QgsField("model_name", QVariant.String))
+            fields.append(QgsField("response_timestamp", QVariant.String))
             
             # Get CRS
             crs = QgsCoordinateReferenceSystem(crs_authid)
@@ -341,7 +343,8 @@ class LayerManager:
         return None
 
     def create_single_layer_with_features(self, features_data, ai_provider, captured_map_extent,
-                                        captured_extent_width, captured_extent_height):
+                                        captured_extent_width, captured_extent_height,
+                                        model_name=None, response_timestamp=None):
         """
         Create a group with individual memory vector layers for each feature.
         Supports both point and polygon (bounding box) geometries.
@@ -351,7 +354,12 @@ class LayerManager:
         :param captured_map_extent: QgsRectangle of the captured area
         :param captured_extent_width: Width of extent in map units
         :param captured_extent_height: Height of extent in map units
+        :param model_name: Full model name as shown in the model widget
+        :param response_timestamp: Timestamp of the AI response (auto-generated if None)
         """
+        # Generate timestamp if not provided
+        if response_timestamp is None:
+            response_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logger.info(f"create_single_layer_with_features called with ai_provider: {ai_provider}")
         logger.info(f"features_data: {features_data}")
         logger.info(f"features_data type: {type(features_data)}")
@@ -461,7 +469,8 @@ class LayerManager:
 
                     layer = self._create_feature_layer(
                         layer_name, crs_authid, geometry, geometry_type,
-                        label, reason, confidence, ai_provider
+                        label, reason, confidence, ai_provider,
+                        model_name, response_timestamp
                     )
 
                     if layer:
@@ -636,7 +645,7 @@ class LayerManager:
             logger.error(f"Error creating polygon: {str(e)}")
             return None
     
-    def _create_feature_layer(self, layer_name, crs_authid, geometry, geometry_type, label, reason, confidence, ai_provider):
+    def _create_feature_layer(self, layer_name, crs_authid, geometry, geometry_type, label, reason, confidence, ai_provider, model_name=None, response_timestamp=None):
         """Create a memory layer with a single feature
 
         :param layer_name: Name of the layer
@@ -647,6 +656,8 @@ class LayerManager:
         :param reason: Feature reason/description
         :param confidence: Confidence score
         :param ai_provider: AI provider name
+        :param model_name: Full model name as shown in the model widget
+        :param response_timestamp: Timestamp of the AI response
         """
         try:
             # Create memory layer with appropriate geometry type
@@ -661,14 +672,16 @@ class LayerManager:
                 QgsField("label", QVariant.String),
                 QgsField("reason", QVariant.String),
                 QgsField("confidence", QVariant.Double),
-                QgsField("ai_provider", QVariant.String)
+                QgsField("ai_provider", QVariant.String),
+                QgsField("model_name", QVariant.String),
+                QgsField("response_timestamp", QVariant.String)
             ])
             layer.updateFields()
 
             # Create and add feature
             feature = QgsFeature()
             feature.setGeometry(geometry)
-            feature.setAttributes([label, reason, float(confidence), ai_provider])
+            feature.setAttributes([label, reason, float(confidence), ai_provider, model_name or '', response_timestamp or ''])
 
             provider.addFeature(feature)
             layer.updateExtents()

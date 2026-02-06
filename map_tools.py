@@ -35,8 +35,9 @@ import os
 import tempfile
 import base64
 import time
-from qgis.PyQt.QtCore import Qt, QRectF, QSize, pyqtSignal, QPointF, QPoint
+from qgis.PyQt.QtCore import Qt, QRectF, QSize, pyqtSignal, QPointF, QPoint, QBuffer, QIODevice
 from qgis.PyQt.QtGui import QColor, QPixmap, QPainter, QPen, QKeyEvent
+from qgis.PyQt.QtWidgets import QMessageBox
 from qgis.core import (
     Qgis, QgsProject, QgsMapSettings,
     QgsRectangle, QgsMapRendererParallelJob, QgsWkbTypes,
@@ -156,6 +157,8 @@ class MapRenderer:
     MAX_THUMBNAIL_HEIGHT = 150
     TEMP_IMAGE_FILENAME = "gemini_map_image.png"
     TEMP_THUMBNAIL_FILENAME = "gemini_map_thumbnail.png"
+    # Maximum image size that can be sent to AI (8 million pixels)
+    MAX_IMAGE_PIXELS = 8_000_000
 
     def __init__(self, map_canvas, ground_resolution_m_per_px=1.0):
         self.map_canvas = map_canvas
@@ -261,7 +264,9 @@ class MapRenderer:
             high_quality: If True, enable high quality rendering (default: False)
 
         Returns:
-            QImage: The rendered map image, or None if rendering failed
+            tuple: (QImage, QgsRectangle) - rendered image and actual visible extent,
+                   or None if rendering failed. The visible extent may differ from the
+                   requested extent because QGIS adjusts it to match the output aspect ratio.
         """
         map_settings = QgsMapSettings()
         map_settings.setLayers(self.filter_canvas_layers())
@@ -275,6 +280,10 @@ class MapRenderer:
         map_settings.setFlag(Qgis.MapSettingsFlag.UseRenderingOptimization, True)
         if high_quality:
             map_settings.setFlag(Qgis.MapSettingsFlag.HighQualityImageTransforms, True)
+
+        # Get the actual visible extent after QGIS adjusts for aspect ratio
+        actual_extent = map_settings.visibleExtent()
+        logger.info(f"Requested extent: {map_extent.toString()}, Actual visible extent: {actual_extent.toString()}")
 
         # Render the map
         logger.info(f"Starting map rendering ({'high' if high_quality else 'normal'} quality)...")
@@ -291,7 +300,7 @@ class MapRenderer:
             logger.warning("Failed to render map image")
             return None
 
-        return rendered_image
+        return rendered_image, actual_extent
 
     def capture_map_thumbnail(self, selected_rectangle):
         """Create a thumbnail by scaling the AI image if it exists, otherwise render a new one.
@@ -327,9 +336,10 @@ class MapRenderer:
 
             thumb_w, thumb_h = self._calculate_thumbnail_dimensions(abs(selected_rectangle.width()),
                                                                     abs(selected_rectangle.height()))
-            thumbnail_image = self.create_and_render_map(map_extent, thumb_w, thumb_h, high_quality=False)
-            if thumbnail_image is None:
+            result = self.create_and_render_map(map_extent, thumb_w, thumb_h, high_quality=False)
+            if result is None:
                 return None
+            thumbnail_image, _ = result
 
             thumbnail_pixmap = QPixmap.fromImage(thumbnail_image)
             logger.info(f"Rendered thumbnail: {thumb_w}x{thumb_h}")
@@ -340,19 +350,36 @@ class MapRenderer:
             logger.error(f"Error in capture_map_thumbnail: {str(e)}")
             return None
 
-    def capture_map_image(self, selected_rectangle):
+    def capture_map_image(self, selected_rectangle, existing_map_extent=None):
         """Capture the selected area of the map as an image at fixed ground resolution
+
+        Args:
+            selected_rectangle: QRectF in screen coordinates (required if existing_map_extent is None)
+            existing_map_extent: Optional QgsRectangle to use instead of converting from screen coords.
+                               When resolution changes, pass the stored extent to avoid re-conversion
+                               from screen coordinates which may give different results if the canvas
+                               view has changed.
 
         Returns:
             tuple: (base64_encoded_image, captured_map_extent, captured_top_left_map,
                    captured_bottom_right_map, captured_extent_width, captured_extent_height)
         """
-        if not selected_rectangle:
-            logger.info("No selected rectangle")
+        if not selected_rectangle and not existing_map_extent:
+            logger.info("No selected rectangle or existing extent")
             return None, None, None, None, None, None
 
-        # Get map coordinates and extent
-        top_left_map, bottom_right_map, map_extent, extent_width, extent_height = self.get_map_coordinates_and_extent(selected_rectangle)
+        # Use existing map extent if provided (for resolution changes)
+        # This preserves the exact map area from the original selection
+        if existing_map_extent:
+            map_extent = existing_map_extent
+            extent_width = map_extent.width()
+            extent_height = map_extent.height()
+            top_left_map = QgsPointXY(map_extent.xMinimum(), map_extent.yMaximum())
+            bottom_right_map = QgsPointXY(map_extent.xMaximum(), map_extent.yMinimum())
+            logger.info(f"Using existing map extent: {map_extent.toString()}")
+        else:
+            # Get map coordinates and extent from screen rectangle
+            top_left_map, bottom_right_map, map_extent, extent_width, extent_height = self.get_map_coordinates_and_extent(selected_rectangle)
         if map_extent is None:
             return None, None, None, None, None, None
 
@@ -360,20 +387,50 @@ class MapRenderer:
         output_width, output_height = self._calculate_output_dimensions(
             top_left_map, bottom_right_map, extent_width, extent_height, selected_rectangle
         )
+
+        # Check if image size exceeds the maximum allowed for AI processing
+        total_pixels = output_width * output_height
+        if total_pixels > self.MAX_IMAGE_PIXELS:
+            logger.warning(f"Image size {output_width}x{output_height} ({total_pixels:,} pixels) exceeds maximum of {self.MAX_IMAGE_PIXELS:,} pixels")
+            QMessageBox.warning(
+                None,
+                "Image Too Large",
+                f"The selected area would result in an image of {output_width:,} x {output_height:,} pixels "
+                f"({total_pixels:,} total pixels).\n\n"
+                f"This exceeds the maximum of {self.MAX_IMAGE_PIXELS:,} pixels that can be sent to the AI.\n\n"
+                f"Current ground resolution: {self.ground_resolution_m_per_px} m/pixel\n\n"
+                f"Please either:\n"
+                f"• Select a smaller area, or\n"
+                f"• Increase the ground resolution (m/pixel) in settings"
+            )
+            return None, None, None, None, None, None
+
         logger.info(f"Capturing map image: {output_width}x{output_height} pixels at {self.ground_resolution_m_per_px}m/px")
 
         # Render the map
-        rendered_image = self.create_and_render_map(map_extent, output_width, output_height)
-        if rendered_image is None:
+        result = self.create_and_render_map(map_extent, output_width, output_height)
+        if result is None:
             return None, None, None, None, None, None
+        rendered_image, actual_extent = result
 
-        # Save to file and encode to base64
+        # Use the actual rendered extent (QGIS adjusts extent to match output aspect ratio)
+        map_extent = actual_extent
+        extent_width = actual_extent.width()
+        extent_height = actual_extent.height()
+        top_left_map = QgsPointXY(actual_extent.xMinimum(), actual_extent.yMaximum())
+        bottom_right_map = QgsPointXY(actual_extent.xMaximum(), actual_extent.yMinimum())
+
+        # Convert directly to base64 without intermediate file I/O
+        buffer = QBuffer()
+        buffer.open(QIODevice.WriteOnly)
+        rendered_image.save(buffer, "PNG")
+        encoded_image = base64.b64encode(buffer.data()).decode('utf-8')
+        buffer.close()
+
+        # Save to temp file for thumbnail use
         pixmap = QPixmap.fromImage(rendered_image)
         image_path = os.path.join(tempfile.gettempdir(), self.TEMP_IMAGE_FILENAME)
         pixmap.save(image_path, "PNG")
-
-        with open(image_path, "rb") as image_file:
-            encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
 
         logger.info(f"Map image captured: {len(encoded_image)} chars")
         return encoded_image, map_extent, top_left_map, bottom_right_map, extent_width, extent_height
@@ -409,10 +466,15 @@ class MapRenderer:
             output_width = max(1, int(round(extent_width / pixel_size_x)))
             output_height = max(1, int(round(extent_height / pixel_size_y)))
         else:
-            # Fallback to screen resolution
-            output_width = int(selected_rectangle.width())
-            output_height = int(selected_rectangle.height())
-            logger.warning("Using screen resolution as fallback")
+            # Fallback to screen resolution (only if selected_rectangle is available)
+            if selected_rectangle:
+                output_width = max(1, int(selected_rectangle.width()))
+                output_height = max(1, int(selected_rectangle.height()))
+            else:
+                # Ultimate fallback: use extent dimensions as-is (map units = pixels)
+                output_width = max(1, int(extent_width))
+                output_height = max(1, int(extent_height))
+            logger.warning("Using fallback resolution (distance calculation failed)")
 
         return output_width, output_height
 
