@@ -114,8 +114,7 @@ class GenAIHandler:
                 logger.info(f"  Message {i+1} [{role}]:")
                 for j, part in enumerate(parts):
                     if 'text' in part:
-                        text = part['text'][:497] + "..." if len(part['text']) > 500 else part['text']
-                        logger.info(f"    Part {j+1} [text]: {text}")
+                        logger.info(f"    Part {j+1} [text]: {part['text']}")
                     elif 'inline_data' in part:
                         logger.info(f"    Part {j+1} [image]: <image omitted>")
             else:  # gpt
@@ -125,13 +124,11 @@ class GenAIHandler:
                 if isinstance(content, list):
                     for j, part in enumerate(content):
                         if isinstance(part, dict) and part.get('type') == 'text':
-                            text = part.get('text', '')[:497] + "..." if len(part.get('text', '')) > 500 else part.get('text', '')
-                            logger.info(f"    Part {j+1} [text]: {text}")
+                            logger.info(f"    Part {j+1} [text]: {part.get('text', '')}")
                         elif isinstance(part, dict) and part.get('type') == 'image_url':
                             logger.info(f"    Part {j+1} [image]: <image omitted>")
                 elif isinstance(content, str):
-                    text = content[:497] + "..." if len(content) > 500 else content
-                    logger.info(f"    Content: {text}")
+                    logger.info(f"    Content: {content}")
         logger.info(f"=== End {provider.upper()} Request Messages ===")
 
     def analyze_with_ai(self, prompt_text, chat_context, model, api_key, image_data=None, system_prompt=None):
@@ -383,6 +380,7 @@ class GenAIHandler:
         payload = {
             "model": selected_model,
             "messages": messages,
+            #"reasoning": {"effort": "none"},
         }
 
         logger.info(f"GPT request prepared - {len(messages)} messages, model: {selected_model}")

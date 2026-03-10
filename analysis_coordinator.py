@@ -266,17 +266,12 @@ class AnalysisCoordinator:
         Returns:
             str: Full prompt text (including wikidata context if available)
         """
-        prompt_text = user_input_text
-
-        # Prepend wikidata context if available (should come before user query)
+        # Clear any pending wikidata/SPARQL context without sending it to the AI
         if hasattr(self.plugin.dock_widget, 'wikidata_context') and self.plugin.dock_widget.wikidata_context:
-            wikidata_context = self.plugin.dock_widget.wikidata_context
-            prompt_text = f"{wikidata_context}\n\n{prompt_text}"
-            logger.info(f"Added wikidata context ({len(wikidata_context)} chars) to prompt")
-            # Clear the context after using it
+            logger.info(f"Discarding wikidata/SPARQL context ({len(self.plugin.dock_widget.wikidata_context)} chars) - not sent to AI")
             self.plugin.dock_widget.wikidata_context = ""
 
-        return prompt_text
+        return user_input_text
 
     def _validate_prerequisites(self):
         """

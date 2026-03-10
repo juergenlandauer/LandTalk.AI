@@ -48,6 +48,7 @@ class PluginConstants:
     # UI feature flags
     ENABLE_ADD_EXAMPLES_BUTTON = True  # Show/hide the "Add examples" button
     ENABLE_WIKIDATA_BUTTON = False  # Show/hide the "Wikidata" button
+    ENABLE_OUTPUT_MENUENTRY = False  # Show/hide the "RDF/Turtle output" menu entry
 
     # Wikidata response truncation limit (in characters)
     WIKIDATA_RESPONSE_MAX_CHARS = 5000

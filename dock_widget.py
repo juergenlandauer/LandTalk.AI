@@ -55,6 +55,7 @@ from .platform_utils import IS_MACOS, scale_font, resolve_dock_widget_features
 from .ui_styles import UIStyles
 from .dimension_utils import calculate_ground_dimensions, format_dimension
 from .constants import PluginConstants
+from .rdf_exporter import RDFExporter
 
 
 class ImagePopupDialog(QDialog):
@@ -706,11 +707,18 @@ class LandTalkDockWidget(QDockWidget):
         self.save_layers_action = QAction("Save All Layers Now", self.main_widget)
         self.save_layers_action.triggered.connect(self.on_save_layers_clicked)
 
+        # Add RDF/Turtle output action
+        self.rdf_output_action = QAction("RDF/Turtle output", self.main_widget)
+        self.rdf_output_action.setToolTip("Export analysis results to RDF/Turtle format")
+        self.rdf_output_action.triggered.connect(self.on_output_button_clicked)
+
         # Build the settings menu
         self.settings_menu.addAction(self.logging_action)
         self.settings_menu.addSeparator()
         self.settings_menu.addMenu(self.layer_persistence_menu)
         self.settings_menu.addAction(self.save_layers_action)
+        if PluginConstants.ENABLE_OUTPUT_MENUENTRY:
+            self.settings_menu.addAction(self.rdf_output_action)
         self.settings_menu.addSeparator()
         self.settings_menu.addAction(self.gemini_key_action)
         self.settings_menu.addAction(self.gpt_key_action)
@@ -742,6 +750,7 @@ class LandTalkDockWidget(QDockWidget):
         self.tutorial_button.setStyleSheet(UIStyles.button_options())
         self.tutorial_button.clicked.connect(self.show_tutorial)
 
+
     def _setup_controls(self, layout):
         """Setup control panel with AI model and confidence settings"""
         # Add menu bar to layout only on non-macOS systems
@@ -755,11 +764,12 @@ class LandTalkDockWidget(QDockWidget):
         self.ai_model_label.setStyleSheet(UIStyles.label_input_control())
 
         self.ai_model_combo = QComboBox()
-        self.ai_model_combo.addItem("gemini-2.5-pro", "gemini-2.5-pro")
         self.ai_model_combo.addItem("gemini-2.5-flash", "gemini-2.5-flash")
-        self.ai_model_combo.addItem("gemini-robotics-er-1.5-preview (recommended)", "gemini-robotics-er-1.5-preview")
-        self.ai_model_combo.addItem("gemini-3-flash-preview (recommended)", "gemini-3-flash-preview")
-        self.ai_model_combo.addItem("gemini-3-pro-preview", "gemini-3-pro-preview")
+        self.ai_model_combo.addItem("gemini-robotics-er-1.5 (recommended)", "gemini-robotics-er-1.5-preview")
+        self.ai_model_combo.addItem("gemini-3-flash (recommended)", "gemini-3-flash-preview")
+        self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)", "gemini-3.1-flash-lite-preview")
+        self.ai_model_combo.addItem("gemini-3.1-pro", "gemini-3.1-pro-preview")
+        self.ai_model_combo.addItem("gpt-5.4", "gpt-5.4")
         self.ai_model_combo.addItem("gpt-5.2", "gpt-5.2")
         self.ai_model_combo.addItem("gpt-5.1-mini", "gpt-5.1-mini")
         self.ai_model_combo.addItem("gpt-5.1-nano", "gpt-5.1-nano")
@@ -827,7 +837,7 @@ class LandTalkDockWidget(QDockWidget):
     def _setup_thumbnail_widget(self):
         """Setup thumbnail display widget with image and info panel"""
         self.thumbnail_widget = QWidget()
-        self.thumbnail_widget.setVisible(False)
+        self.thumbnail_widget.setVisible(True)
         thumbnail_layout = QVBoxLayout(self.thumbnail_widget)
         thumbnail_layout.setContentsMargins(2, 2, 2, 2)
 
@@ -921,7 +931,7 @@ class LandTalkDockWidget(QDockWidget):
         layout.addWidget(self.chat_display)
 
         # Add initial welcome message
-        self.add_system_message("Welcome! Click 'Select area' above to choose a map area.")
+        self.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini 3 models currently provide best results.")
 
     def _setup_input_section(self, layout):
         """Setup input section with text area and buttons"""
@@ -1063,8 +1073,8 @@ class LandTalkDockWidget(QDockWidget):
             
             self.thumbnail_widget.setVisible(True)
         else:
-            # Hide the thumbnail widget if no valid pixmap
-            self.thumbnail_widget.setVisible(False)
+            # Clear the image label but keep widget visible
+            self.thumbnail_image_label.clear()
     
     def update_thumbnail_info(self):
         """Update the information panel with current ground resolution and dimensions"""
@@ -1106,19 +1116,23 @@ class LandTalkDockWidget(QDockWidget):
             self.height_value.setText("Error")
         
     def clear_thumbnail_display(self):
-        """Clear the thumbnail display and hide it"""
+        """Clear the thumbnail display"""
         self.thumbnail_image_label.clear()
         # Reset information panel to default values but preserve resolution selection
         if hasattr(self, 'resolution_combo'):
             # Keep the last selected resolution instead of resetting to default
             self.resolution_combo.setCurrentIndex(self.last_selected_resolution_index)
-        self.width_value.setText("0 m")
-        self.height_value.setText("0 m")
-        self.thumbnail_widget.setVisible(False)
+        self.width_value.setText("")
+        self.height_value.setText("")
     
     def on_thumbnail_clicked(self, event):
         """Handle thumbnail click to show full-size image popup"""
         try:
+            # Do nothing if no image is currently displayed
+            pixmap = self.thumbnail_image_label.pixmap()
+            if pixmap is None or pixmap.isNull():
+                return
+
             # Get the path to gemini_map_image.png
             image_path = os.path.join(tempfile.gettempdir(), "gemini_map_image.png")
             
@@ -1452,7 +1466,7 @@ class LandTalkDockWidget(QDockWidget):
                     # Ensure a fresh map image will be captured for the next chat
                     if hasattr(self, 'parent_plugin') and self.parent_plugin:
                         self.parent_plugin.captured_image_data = None
-                    self.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. You can add type a message (optional) and click 'Analyze' to analyze this image.")
+                    self.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini 3 models currently provide best results.")
                     # Also clear the rectangular selection when model changes
                     self.parent_plugin.cleanup_selection()
     
@@ -1551,8 +1565,7 @@ class LandTalkDockWidget(QDockWidget):
         
         # Re-capture the image with the new resolution if there's a selected area
         if (hasattr(self.parent_plugin, 'selected_rectangle') and
-            self.parent_plugin.selected_rectangle and
-            self.thumbnail_widget.isVisible()):
+            self.parent_plugin.selected_rectangle):
 
             logger.info("Re-capturing image with new resolution")
 
@@ -1574,9 +1587,8 @@ class LandTalkDockWidget(QDockWidget):
             else:
                 logger.warning("Failed to re-capture high-resolution image with new resolution")
         else:
-            # Just update the thumbnail info panel if no area is selected
-            if self.thumbnail_widget.isVisible():
-                self.update_thumbnail_info()
+            # No area selected, nothing to update
+            pass
     
     def resizeEvent(self, event):
         """Handle resize event to adjust chat display height dynamically"""
@@ -1664,6 +1676,62 @@ class LandTalkDockWidget(QDockWidget):
         except Exception as e:
             logger.error(f"Error in Wikidata query workflow: {str(e)}")
             QMessageBox.warning(self, "Error", f"Failed to process Wikidata query: {str(e)}")
+
+    def on_output_button_clicked(self):
+        """Handle Output button click to export analysis results to RDF/Turtle format"""
+        logger.info("Output button clicked - starting RDF export")
+
+        try:
+            # Check if project is saved
+            from qgis.core import QgsProject
+            project = QgsProject.instance()
+            if not project.fileName():
+                QMessageBox.warning(
+                    self,
+                    "Project Not Saved",
+                    "Please save your QGIS project before exporting RDF.\n\n"
+                    "The RDF file will be saved in the project's directory."
+                )
+                logger.warning("Project is not saved, cannot export RDF")
+                return
+
+            # Check if parent plugin is available
+            if not self.parent_plugin:
+                QMessageBox.warning(
+                    self,
+                    "Error",
+                    "Plugin not properly initialized."
+                )
+                logger.error("parent_plugin is None, cannot export RDF")
+                return
+
+            # Create RDF exporter and export
+            exporter = RDFExporter(self.parent_plugin)
+            result_path = exporter.export_to_ttl()
+
+            if result_path:
+                QMessageBox.information(
+                    self,
+                    "RDF Export Successful",
+                    f"Analysis results exported to:\n\n{result_path}"
+                )
+                logger.info(f"RDF export completed successfully: {result_path}")
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Export Failed",
+                    "No features found to export.\n\n"
+                    "Please run an AI analysis first to generate features."
+                )
+                logger.warning("RDF export failed - no features found")
+
+        except Exception as e:
+            logger.error(f"Error during RDF export: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"Failed to export RDF:\n\n{str(e)}"
+            )
 
     def process_wikidata_results(self, sparql_result, q_number):
         """Process SPARQL results and store them as context (not in UI)"""
