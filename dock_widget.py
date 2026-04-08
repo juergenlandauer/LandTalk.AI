@@ -786,16 +786,17 @@ class LandTalkDockWidget(QDockWidget):
         self.ai_model_combo.currentTextChanged.connect(self.on_model_changed)
 
         # Create probability input
-        self.prob_label = QLabel("Conf. (%):")
-        self.prob_label.setStyleSheet(UIStyles.label_input_control())
-        self.prob_label.setToolTip("Filter for features with confidence greater than this value (0-100)")
+    ### CURRENTLY NOT USED
+    #    self.prob_label = QLabel("Conf. (%):")
+    #    self.prob_label.setStyleSheet(UIStyles.label_input_control())
+    #    self.prob_label.setToolTip("Filter for features with confidence greater than this value (0-100)")
 
-        self.prob_input = QLineEdit()
-        self.prob_input.setText("0")
-        self.prob_input.setMaximumWidth(50)
-        self.prob_input.setToolTip("Filter for features with confidence greater than this value (0-100)")
-        self.prob_input.setValidator(QIntValidator(0, 99))
-        self.prob_input.setStyleSheet(UIStyles.line_edit_probability())
+    #    self.prob_input = QLineEdit()
+    #    self.prob_input.setText("0")
+    #    self.prob_input.setMaximumWidth(50)
+    #    self.prob_input.setToolTip("Filter for features with confidence greater than this value (0-100)")
+    #    self.prob_input.setValidator(QIntValidator(0, 99))
+    #    self.prob_input.setStyleSheet(UIStyles.line_edit_probability())
 
         # Create controls widget
         controls_widget = QWidget()
@@ -806,8 +807,8 @@ class LandTalkDockWidget(QDockWidget):
         controls_layout.addWidget(self.ai_model_label)
         controls_layout.addWidget(self.ai_model_combo)
         controls_layout.addStretch()
-        controls_layout.addWidget(self.prob_label)
-        controls_layout.addWidget(self.prob_input)
+#        controls_layout.addWidget(self.prob_label)
+#        controls_layout.addWidget(self.prob_input)
 
         controls_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(controls_widget)

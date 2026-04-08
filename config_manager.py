@@ -34,8 +34,9 @@ and system prompts.
 import os
 import json
 from qgis.PyQt.QtCore import QSettings
-from qgis.PyQt.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QMessageBox
+from qgis.PyQt.QtWidgets import QDialog, QMessageBox
 from .logging import logger
+from .domain_wizard_dialog import DomainWizardDialog
 from .ai_worker import ApiKeyDialog
 from .constants import PluginConstants
 
@@ -277,98 +278,26 @@ class PluginConfigManager:
             )
     
     def edit_system_prompt(self):
-        """Open dialog to edit chat rules"""
-        # Create a dialog for editing the chat rules
-        dialog = QDialog(self.iface.mainWindow())
-        dialog.setWindowTitle("Edit Chat Rules")
-        dialog.resize(600, 400)
-        
-        layout = QVBoxLayout()
-        
-        # Add label
-        label = QLabel("Edit the system prompt that will be sent to the AI:")
-        layout.addWidget(label)
-        
-        # Add text edit
-        text_edit = QTextEdit()
-        text_edit.setPlainText(self.system_prompt)
-        layout.addWidget(text_edit)
-        
-        # Add buttons
-        button_layout = QHBoxLayout()
-        save_button = QPushButton("Save")
-        reset_button = QPushButton("Reset")
-        cancel_button = QPushButton("Cancel")
-        button_layout.addWidget(save_button)
-        button_layout.addWidget(reset_button)
-        button_layout.addWidget(cancel_button)
-        layout.addLayout(button_layout)
-        
-        dialog.setLayout(layout)
-        
-        # Connect buttons
-        save_button.clicked.connect(dialog.accept)
-        # Reset: replace the user's `systemprompt.txt` with the default prompt
-        def on_reset():
-            # Confirm with the user
-            resp = QMessageBox.question(
-                self.iface.mainWindow(),
-                "Reset System Prompt",
-                "Reset will replace your custom system prompt with the original default. Continue?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            if resp != QMessageBox.Yes:
-                return
-
-            # Load default prompt
-            if not os.path.exists(self.default_system_prompt_file):
-                QMessageBox.warning(
-                    self.iface.mainWindow(),
-                    "Warning",
-                    "Default system prompt file not found. Cannot reset."
-                )
-                return
-
-            try:
-                with open(self.default_system_prompt_file, 'r') as df:
-                    default_text = df.read()
-                # Overwrite or create the user override file
-                with open(self.system_prompt_file, 'w') as uf:
-                    uf.write(default_text)
-                # Update the editor
-                text_edit.setPlainText(default_text)
-                QMessageBox.information(
-                    self.iface.mainWindow(),
-                    "Reset",
-                    "System prompt has been reset to the default."
-                )
-            except Exception as e:
-                logger.error(f"Error resetting system prompt: {e}")
-                QMessageBox.warning(
-                    self.iface.mainWindow(),
-                    "Error",
-                    f"Could not reset system prompt: {e}"
-                )
-
-        reset_button.clicked.connect(on_reset)
-        cancel_button.clicked.connect(dialog.reject)
-        
-        # Show dialog and handle result
+        """Open Domain Wizard dialog to configure the AI system prompt."""
+        dialog = DomainWizardDialog(
+            parent=self.iface.mainWindow(),
+            current_prompt=self.system_prompt,
+            plugin_dir=self.plugin_dir,
+        )
         if dialog.exec_() == QDialog.Accepted:
-            new_prompt = text_edit.toPlainText().strip()
+            new_prompt = dialog.get_prompt()
             if new_prompt:
                 self.save_system_prompt(new_prompt)
                 QMessageBox.information(
                     self.iface.mainWindow(),
                     "Success",
-                    "Chat rules have been updated."
+                    "Domain configuration saved."
                 )
             else:
                 QMessageBox.warning(
                     self.iface.mainWindow(),
                     "Warning",
-                    "Chat rules cannot be empty."
+                    "System prompt cannot be empty."
                 )
     
     # Getters for configuration values
