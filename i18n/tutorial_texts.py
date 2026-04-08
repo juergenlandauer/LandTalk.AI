@@ -9,7 +9,7 @@ separated from the UI code for better maintainability and potential localization
 # Window and Header Texts
 WINDOW_TITLE = "Welcome to LandTalk.AI"
 WELCOME_TITLE = "Welcome to LandTalk.AI"
-WELCOME_SUBTITLE = "Your Landscape Talks With You - by using AI"
+WELCOME_SUBTITLE = "Your Landscape Talks to You - Using AI"
 WELCOME_DESCRIPTION = (
     "This tutorial will help you get started with LandTalk.AI. "
     "Learn how to analyze map areas using AI and discover tips for better results."
@@ -28,12 +28,12 @@ GETTING_STARTED_CONTENT = """
     <li><b>Google Gemini:</b> Visit <a href='https://makersuite.google.com/app/apikey'>Google AI Studio</a> to get your free API key</li>
     <li><b>OpenAI GPT:</b> Visit <a href='https://platform.openai.com/api-keys'>OpenAI Platform</a> to get your API key</li>
 </ul>
-<p>Once you have your key, click the <b>Options</b> button in the LandTalk.AI panel and select the appropriate key option to enter it. Recommendation: try both AI providers to see which one works best for your use case.</p>
+<p>Once you have your keys, click the <b>Options</b> button in the LandTalk.AI panel and select the appropriate key option to enter it. We recommend trying both AI providers to see which one works best for your use case.</p>
 
 <h2>Step 2: Basic Workflow</h2>
 <p>The basic workflow for using LandTalk.AI is simple:</p>
 <ol>
-    <li><b>Adapt for your domain:</b> In case you are not an archaeologist, check the 'Rules' section under 'Tips and Tricks' now.</li>
+    <li><b>Adapt for your domain of interest:</b> Click on the 'Rules' button at the bottom and choose your field of interest in the dropdown menu. In case your domain is not listed, go to "Custom" and fill in your data.</li>
     <li><b>Select an area:</b> Click 'Select area' and draw a rectangle on your map</li>
     <li><b>Analyze:</b> Click 'Analyze' to send your request to the AI</li>
     <li><b>View results:</b> The AI will create map layers in a new group called 'LandTalk.ai' showing detected features</li>
@@ -49,11 +49,11 @@ GETTING_STARTED_CONTENT = """
 <h2>Step 4: Understanding Results</h2>
 <p>When the AI analyzes your map area, it will:</p>
 <ul>
-    <li><b>Create map layers:</b> Each detected feature becomes a separate layer in the 'LandTalk.ai' group</li>
+    <li><b>Create map layers:</b> Each detected feature becomes a separate layer in the 'LandTalk.AI' group</li>
     <li><b>Show confidence scores:</b> Each feature includes a confidence percentage (0-100)</li>
     <li><b>Provide explanations:</b> The AI explains why it identified each feature</li>
     <li><b>Display labels:</b> Feature names and confidence scores are shown on the map</li>
-    <li><b>Results layers:</b> all new map layers are  stored as GeoPackages (gpkg) automatically in a directory LandTalk_Analysis where your project file is located. Delete unused layers. And you can modify this behavior in the Options menu.</li>
+    <li><b>Results layers:</b> all new map layers are  stored as GeoPackages (gpkg) automatically in a directory called LandTalk.AI_Analysis where your project file is located. Delete unused layers. And you can modify this behavior in the Options menu.</li>
 </ul>
 """
 
@@ -62,7 +62,7 @@ TIPS_TRICKS_CONTENT = """
 <h2>💡 Customizing AI Behavior with Rules</h2>
 <p>Click on the <b>Rules</b> button to see what rules are <b>always</b> sent to the AI for map analysis along with your messages.</p>
 <ul>
-    <li><b>Adapt for your domain:</b> If you do not work in Archaeology, modify this text so that it matches your interests</li>
+    <li><b>Adapt for your domain:</b> The AI works best if it understands what domain you are interested in. So try modifying the texts so that it matches your interests</li>
     <li><b>Specialize Analysis:</b> Add instructions for specific types of analysis. The more context you provide, the better the AI can understand your request.</li>
 </ul>
 <p><b>Example customizations:</b></p>
@@ -78,10 +78,10 @@ TIPS_TRICKS_CONTENT = """
 <ul>
     <li><b>Add messages (prompts):</b> Asking more specifically for features you are interested in will guide the AI (e.g., 'Search for burial mounds')</li>
     <li><b>Have a longer chat:</b> discuss the response with the AI across several chat steps to refine the results. For example "review the bounding box locations!" may result in an improvement.</li>
-    <li><b>Check  image size</b> Do not analyze areas that are too large. Try lower resolutions first. Processing of images that are too large takes much more time or might get rejected by the AI</li>
+    <li><b>Check image size.</b> Do not analyze areas that are too large. Try lower resolutions first. Processing of images that are too large takes much more time or might get rejected by the AI</li>
     <li><b>Adjust resolution:</b> Higher resolution works better for very small features. Try it out!</li>
     <li><b>Try different models:</b> Gemini and GPT may give different results, so often it is worth trying several models for best results</li>
-    <li><b>Adjust min. confidence:</b> filter out low-confidence detections if needed by using the 'Conf. (%)' field. 80% makes a good starting point but try different values</li>
+    <li><b>Adjust minimum confidence:</b> Filter out low-confidence detections if needed by using the 'Conf. (%)' field. 80% makes a good starting point but try different values</li>
 </ul>
 
 """
@@ -113,7 +113,7 @@ FAQ_CONTENT = """
 <p>Yes! You can continue conversations about the same area by adding new messages. The AI will remember the previous context and build upon it.</p>
 
 <h3>Q9: How do I remove old analysis results?</h3>
-<p>You can delete individual layers from the 'LandTalk.ai' group in QGIS, or delete the entire group to remove all analysis results. The files in the analysis directory should then be deleted manually.</p>
+<p>You can delete individual layers from the 'LandTalk.AI' group in QGIS, or delete the entire group to remove all analysis results. The files in the analysis directory should then be deleted manually.</p>
 """
 
 # Button and UI Texts
