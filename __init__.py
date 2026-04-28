@@ -30,11 +30,12 @@ __version__ = '1.2.1'
 __author__ = 'Juergen Landauer'
 __email__ = 'juergen@landauer-ai.de'
 
-def classFactory(iface):
-	"""Load the LandTalkPlugin class from the main plugin file.
 
-	:param iface: A QGIS interface instance.
-	:type iface: QgsInterface
-	"""
-	from .landtalk_plugin import LandTalkPlugin
-	return LandTalkPlugin(iface)
+def classFactory(iface):
+    """Load the LandTalkPlugin class from the main plugin file.
+
+    :param iface: A QGIS interface instance.
+    :type iface: QgsInterface
+    """
+    from .landtalk_plugin import LandTalkPlugin
+    return LandTalkPlugin(iface)

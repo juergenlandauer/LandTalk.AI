@@ -32,7 +32,7 @@ This module contains classes for handling asynchronous AI API calls and API key 
 
 from qgis.PyQt.QtCore import QThread, pyqtSignal
 from qgis.PyQt.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, 
+    QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton
 )
 from .logging import logger
@@ -40,13 +40,14 @@ from .logging import logger
 
 class AIWorker(QThread):
     """Worker thread for making AI API calls asynchronously"""
-    
+
     # Signals for communication with main thread
     finished = pyqtSignal(dict)  # Emits the result when AI call completes
     error = pyqtSignal(str)      # Emits error messages
     progress = pyqtSignal(str)   # Emits progress updates
-    
-    def __init__(self, genai_handler, prompt_text, chat_context, model, api_key, image_data, system_prompt):
+
+    def __init__(self, genai_handler, prompt_text, chat_context, model,
+                 api_key, image_data, system_prompt):
         super().__init__()
         self.genai_handler = genai_handler
         self.prompt_text = prompt_text
@@ -55,30 +56,30 @@ class AIWorker(QThread):
         self.api_key = api_key
         self.image_data = image_data
         self.system_prompt = system_prompt
-        
+
     def run(self):
         """Execute the AI API call in the background thread"""
         try:
             self.progress.emit("Sending request to AI...")
-            
+
             # Make the AI API call
             result = self.genai_handler.analyze_with_ai(
-                self.prompt_text, 
-                self.chat_context, 
-                self.model, 
-                self.api_key, 
-                self.image_data, 
+                self.prompt_text,
+                self.chat_context,
+                self.model,
+                self.api_key,
+                self.image_data,
                 self.system_prompt
             )
-            
+
             if result["success"]:
                 self.progress.emit("AI response received, processing...")
             else:
                 self.progress.emit("AI request failed")
-                
+
             # Emit the result
             self.finished.emit(result)
-            
+
         except Exception as e:
             logger.error(f"Error in AI worker thread: {str(e)}")
             self.error.emit(f"Unexpected error: {str(e)}")
@@ -86,22 +87,24 @@ class AIWorker(QThread):
 
 class ApiKeyDialog(QDialog):
     """Custom dialog for API key input with embedded setup instructions"""
-    
+
     def __init__(self, parent, title, api_type, current_key=""):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setModal(True)
         self.setMinimumWidth(400)
         self.setMinimumHeight(300)
-        
+
         layout = QVBoxLayout()
-        
+
         # Create instructions based on API type
         if api_type.lower() == "gemini":
             instructions = self._get_gemini_instructions()
+        elif api_type.lower() == "claude":
+            instructions = self._get_claude_instructions()
         else:  # OpenAI/GPT
             instructions = self._get_openai_instructions()
-        
+
         # Create instructions label
         instructions_label = QLabel(instructions)
         instructions_label.setWordWrap(True)
@@ -116,15 +119,16 @@ class ApiKeyDialog(QDialog):
             }
         """)
         layout.addWidget(instructions_label)
-        
+
         # Create input field
         input_label = QLabel("Enter your API Key:")
         input_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
         layout.addWidget(input_label)
-        
+
         self.input_field = QLineEdit()
         self.input_field.setText(current_key)
-        self.input_field.setEchoMode(QLineEdit.EchoMode.Normal)  # Show the key normally
+        self.input_field.setEchoMode(
+            QLineEdit.EchoMode.Normal)  # Show the key normally
         self.input_field.setStyleSheet("""
             QLineEdit {
                 border: 2px solid #dee2e6;
@@ -137,7 +141,7 @@ class ApiKeyDialog(QDialog):
             }
         """)
         layout.addWidget(self.input_field)
-        
+
         # Create buttons
         button_layout = QHBoxLayout()
         self.ok_button = QPushButton("Save")
@@ -181,50 +185,75 @@ class ApiKeyDialog(QDialog):
         button_layout.addWidget(self.ok_button)
         button_layout.addWidget(self.cancel_button)
         layout.addLayout(button_layout)
-        
+
         self.setLayout(layout)
-        
+
         # Set focus to input field
         self.input_field.setFocus()
-        
+
     def _get_gemini_instructions(self):
         """Get Gemini API key setup instructions"""
         return """
         <h3 style="color: #333; margin-top: 0;">Google Gemini API Key Setup</h3>
         <p>To access Gemini, you need to provide your Google Gemini API key. Follow these steps:</p>
-        
+
         <div style="background-color: #e8f0fe; padding: 10px; border-radius: 5px; border-left: 4px solid #4285f4; margin: 5px 0;">
             <strong>Setup Steps:</strong>
             <ol>
-                <li>Register with Google (also works with your Gmail account)</li>
-                <li>Login here and get your API key: <a href="https://aistudio.google.com/apikey" style="color: #4285f4;">https://aistudio.google.com/apikey</a></li>
+                <li>Register with Google (
+                    also works with your Gmail account)</li>                <li>Login here and get your API key: <a href= (
+                    "https://aistudio.google.com/apikey" style="color: #4285f4;">https://aistudio.google.com/apikey</a></li>
+                )
                 <li>Click <strong>Copy</strong>. This will place your private key in the clipboard.</li>
                 <li>Paste the key in the field below.</li>
             </ol>
         </div>
-        
-        
-        <p><strong>Additional Resources:</strong> <a href="https://github.com/google-gemini/gemini-api-cookbook/blob/main/quickstarts/Authentication.ipynb" style="color: #4285f4;">Authentication Guide</a></p>
+
+
+        <p><strong>Additional Resources:</strong> <a href= (
+            "https://github.com/google-gemini/gemini-api-cookbook/blob/main/quickstarts/Authentication.ipynb" style="color: #4285f4;">Authentication Guide</a></p>
+        )
         """
-    
+
     def _get_openai_instructions(self):
         """Get OpenAI API key setup instructions"""
         return """
         <h3 style="color: #333; margin-top: 0;">OpenAI API Key Setup</h3>
         <p>To access GPT-4, you need to provide your OpenAI API key. Follow these steps:</p>
-        
+
         <div style="background-color: #e8f0fe; padding: 10px; border-radius: 5px; border-left: 4px solid #007acc; margin: 5px 0;">
             <strong>Setup Steps:</strong>
             <ol>
-                <li>Register with <a href="https://auth.openai.com/create-account" style="color: #007acc;">OpenAI</a></li>
+                <li>Register with <a href= (
+                    "https://auth.openai.com/create-account" style="color: #007acc;">OpenAI</a></li>
+                )
                 <li>Open your OpenAI Settings page. Click <strong>User API keys</strong> then <strong>Create new secret key</strong> to generate new token.</li>
                 <li>Click <strong>Copy</strong>. This will place your private key in the clipboard.</li>
                 <li>Paste the key in the field below.</li>
             </ol>
         </div>
-        
+
         """
-    
+
+    def _get_claude_instructions(self):
+        """Get Anthropic Claude API key setup instructions"""
+        return """
+        <h3 style="color: #333; margin-top: 0;">Anthropic Claude API Key Setup</h3>
+        <p>To access Claude, you need to provide your Anthropic API key. Follow these steps:</p>
+
+        <div style="background-color: #f0f4ff; padding: 10px; border-radius: 5px; border-left: 4px solid #7c3aed; margin: 5px 0;">
+            <strong>Setup Steps:</strong>
+            <ol>
+                <li>Register at <a href= (
+                    "https://console.anthropic.com" style="color: #7c3aed;">https://console.anthropic.com</a></li>
+                )
+                <li>Go to <strong>API Keys</strong> and click <strong>Create Key</strong>.</li>
+                <li>Click <strong>Copy</strong>. This will place your private key in the clipboard.</li>
+                <li>Paste the key in the field below.</li>
+            </ol>
+        </div>
+        """
+
     def get_text(self):
         """Get the text from the input field"""
         return self.input_field.text()

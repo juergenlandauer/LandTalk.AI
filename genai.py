@@ -39,12 +39,6 @@ FULL_REQUEST = False
 class GenAIHandler:
     """Handler for GenAI API interactions (Gemini and GPT)"""
 
-    # Model mappings
-    GPT_MODEL_MAPPING = {
-        "gpt5-mini": "gpt-5-mini",
-        "gpt-4o-mini": "gpt-4o-mini"
-    }
-
     def __init__(self, gemini_api_url, gpt_api_url, api_timeout):
         """Initialize with reference to the main plugin instance and API configuration"""
         self.gemini_api_url = gemini_api_url
@@ -194,9 +188,13 @@ class GenAIHandler:
                         logger.warning("Request timed out - model may be overloaded")
                         return {"success": False, "error": "Request timed out", "error_type": "model_timeout"}
 
-                    # Check for server errors 429/500/503 (model overloaded)
-                    if network_response.get('status_code') in (429, 500, 503):
-                        logger.warning(f"Server error {network_response['status_code']} - model overloaded")
+                    # Check for rate limit (429) or server overload (500/503)
+                    status_code = network_response.get('status_code')
+                    if status_code == 429:
+                        logger.warning(f"Rate limit hit (429) - {network_response.get('error', '')}")
+                        return {"success": False, "error": "Rate limit exceeded", "error_type": "rate_limited"}
+                    if status_code in (500, 503):
+                        logger.warning(f"Server error {status_code} - model overloaded")
                         return {"success": False, "error": "Model overloaded", "error_type": "model_overloaded"}
 
                     # For all other errors, return directly
@@ -374,8 +372,7 @@ class GenAIHandler:
         # 4. New user message comes last
         messages.append({"role": "user", "content": prompt_text})
 
-        # Determine the model to use
-        selected_model = self.GPT_MODEL_MAPPING.get(model, "gpt-5-mini") if model else "gpt-5-mini"
+        selected_model = model
 
         payload = {
             "model": selected_model,

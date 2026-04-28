@@ -56,11 +56,23 @@ def resolve_dock_widget_features():
 
     for owner in feature_owners:
         if movable_feature is None:
-            movable_feature = _resolve_feature(owner, ['DockWidgetMovable', 'Movable'])
+            movable_feature = _resolve_feature(
+                owner,
+                ['DockWidgetMovable',
+                'Movable']
+            )
         if floatable_feature is None:
-            floatable_feature = _resolve_feature(owner, ['DockWidgetFloatable', 'Floatable'])
+            floatable_feature = _resolve_feature(
+                owner,
+                ['DockWidgetFloatable',
+                'Floatable']
+            )
         if closable_feature is None:
-            closable_feature = _resolve_feature(owner, ['DockWidgetClosable', 'Closable'])
+            closable_feature = _resolve_feature(
+                owner,
+                ['DockWidgetClosable',
+                'Closable']
+            )
 
     # Combine all available features using bitwise OR
     features_list = []

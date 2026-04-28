@@ -173,8 +173,15 @@ class AnalysisCoordinator:
                         return  # Skip cleanup - new worker is running
                     else:
                         logger.info("User cancelled after timeout")
+                elif result["error_type"] == "rate_limited":
+                    logger.info("Rate limit hit (429) - showing dialog")
+                    QMessageBox.warning(
+                        dock_widget,
+                        "Rate Limit Exceeded",
+                        "You have hit the API rate limit. Wait a moment and try again, or check your API quota."
+                    )
                 elif result["error_type"] == "model_overloaded":
-                    logger.info("Model overloaded (429/500/503) - showing dialog")
+                    logger.info("Model overloaded (500/503) - showing dialog")
                     QMessageBox.warning(
                         dock_widget,
                         "Model Overloaded",

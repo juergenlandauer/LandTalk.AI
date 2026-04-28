@@ -25,6 +25,8 @@ class PluginConstants:
     # API URLs
     GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/"
     GPT_API_URL = "https://api.openai.com/v1/chat/completions"
+    CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+    CLAUDE_API_VERSION = "2023-06-01"
 
     # Timeouts
     API_TIMEOUT = 120  # seconds

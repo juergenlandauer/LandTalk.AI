@@ -757,22 +757,29 @@ class LandTalkDockWidget(QDockWidget):
         if not IS_MACOS:
             layout.setMenuBar(self.menu_bar)
         else:
-            logger.info("Skipping menu bar layout on macOS to prevent QGIS menu bar conflicts")
-
+            logger.info(
+                "Skipping menu bar layout on macOS to prevent QGIS menu bar conflicts")
         # Create AI model selection
         self.ai_model_label = QLabel("AI Model:")
         self.ai_model_label.setStyleSheet(UIStyles.label_input_control())
 
         self.ai_model_combo = QComboBox()
-        self.ai_model_combo.addItem("gemini-2.5-flash", "gemini-2.5-flash")
-        self.ai_model_combo.addItem("gemini-robotics-er-1.5 (recommended)", "gemini-robotics-er-1.5-preview")
-        self.ai_model_combo.addItem("gemini-3-flash (recommended)", "gemini-3-flash-preview")
-        self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)", "gemini-3.1-flash-lite-preview")
+        self.ai_model_combo.addItem("gemma-4-31b-it", "gemma-4-31b-it")
+        # MoE does not work well
+        # self.ai_model_combo.addItem("gemma-4-26b-a4b-it (MoE)", "gemma-4-26b-a4b-it")
+        self.ai_model_combo.addItem("gemini-robotics-er-1.6 (recommended)",
+            "gemini-robotics-er-1.6-preview")
+        self.ai_model_combo.addItem("gemini-3-flash (recommended)",
+            "gemini-3-flash-preview"    )
+        self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)",
+            "gemini-3.1-flash-lite-preview")
         self.ai_model_combo.addItem("gemini-3.1-pro", "gemini-3.1-pro-preview")
+        self.ai_model_combo.addItem("gpt-5.5", "gpt-5.5")
         self.ai_model_combo.addItem("gpt-5.4", "gpt-5.4")
-        self.ai_model_combo.addItem("gpt-5.2", "gpt-5.2")
-        self.ai_model_combo.addItem("gpt-5.1-mini", "gpt-5.1-mini")
-        self.ai_model_combo.addItem("gpt-5.1-nano", "gpt-5.1-nano")
+        self.ai_model_combo.addItem("gpt-5.4-mini", "gpt-54-mini")
+        self.ai_model_combo.addItem("gpt-5.4-nano", "gpt-5.4-nano")
+        self.ai_model_combo.addItem("claude-opus-4-6", "claude-opus-4-6")
+        self.ai_model_combo.addItem("claude-sonnet-4-6", "claude-sonnet-4-6")
 
         # Select gemini-robotics by default
         idx = self.ai_model_combo.findData("gemini-3-flash-preview")
