@@ -23,12 +23,13 @@ TAB_FAQ = "FAQ"
 # Getting Started Tab Content
 GETTING_STARTED_CONTENT = """
 <h2>Step 1: Set Up Your API Keys</h2>
-<p>Before you can use LandTalk.AI, you need to register with Google Gemini and/or OpenAI and then get an API key:</p>
+<p>Before you can use LandTalk.AI, you need to register with at least one AI provider and get an API key:</p>
 <ul>
-    <li><b>Google Gemini:</b> Visit <a href='https://makersuite.google.com/app/apikey'>Google AI Studio</a> to get your free API key</li>
-    <li><b>OpenAI GPT:</b> Visit <a href='https://platform.openai.com/api-keys'>OpenAI Platform</a> to get your API key</li>
+    <li><b>Google Gemini &amp; Gemma:</b> Visit <a href='https://aistudio.google.com/apikey'>Google AI Studio</a> to get your free API key. This key covers both Gemini and Gemma models.</li>
+    <li><b>OpenAI GPT:</b> Visit <a href='https://platform.openai.com/api-keys'>OpenAI Platform</a> to get your API key.</li>
+    <li><b>Anthropic Claude:</b> Visit <a href='https://console.anthropic.com'>Anthropic Console</a> to get your API key.</li>
 </ul>
-<p>Once you have your keys, click the <b>Options</b> button in the LandTalk.AI panel and select the appropriate key option to enter it. We recommend trying both AI providers to see which one works best for your use case.</p>
+<p>Once you have your keys, click the <b>Options</b> button in the LandTalk.AI panel and select the appropriate key option to enter it. You can register with multiple providers and switch between them at any time.</p>
 
 <h2>Step 2: Basic Workflow</h2>
 <p>The basic workflow for using LandTalk.AI is simple:</p>
@@ -43,7 +44,7 @@ GETTING_STARTED_CONTENT = """
 <p>To get more detailed and customized analysis:</p>
 <ul>
     <li><b>Add a message:</b> Explain in more detail what you want to analyze in the text box. For example "Search for mural features"</li>
-    <li><b>Choose AI model:</b> Select from Gemini or GPT models in the dropdown. Different models may give different results.</li>
+    <li><b>Choose AI model:</b> Select from Gemini, Gemma, GPT, or Claude models in the dropdown. Different models may give different results.</li>
 </ul>
 
 <h2>Step 4: Understanding Results</h2>
@@ -59,20 +60,6 @@ GETTING_STARTED_CONTENT = """
 
 # Tips & Tricks Tab Content
 TIPS_TRICKS_CONTENT = """
-<h2>💡 Customizing AI Behavior with Rules</h2>
-<p>Click on the <b>Rules</b> button to see what rules are <b>always</b> sent to the AI for map analysis along with your messages.</p>
-<ul>
-    <li><b>Adapt for your domain:</b> The AI works best if it understands what domain you are interested in. So try modifying the texts so that it matches your interests</li>
-    <li><b>Specialize Analysis:</b> Add instructions for specific types of analysis. The more context you provide, the better the AI can understand your request.</li>
-</ul>
-<p><b>Example customizations:</b></p>
-<ul>
-    <li>'Always identify building types and construction materials'</li>
-    <li>'Focus on environmental features like water bodies and vegetation'</li>
-    <li>'Provide detailed explanations for each detected feature'</li>
-    <li>'Use specific terminology for urban planning analysis'</li>
-</ul>
-
 <h2>⭐ Tips for Better Results</h2>
 <p>To get the best results from LandTalk.AI:</p>
 <ul>
@@ -80,7 +67,7 @@ TIPS_TRICKS_CONTENT = """
     <li><b>Have a longer chat:</b> discuss the response with the AI across several chat steps to refine the results. For example "review the bounding box locations!" may result in an improvement.</li>
     <li><b>Check image size.</b> Do not analyze areas that are too large. Try lower resolutions first. Processing of images that are too large takes much more time or might get rejected by the AI</li>
     <li><b>Adjust resolution:</b> Higher resolution works better for very small features. Try it out!</li>
-    <li><b>Try different models:</b> Gemini and GPT may give different results, so often it is worth trying several models for best results</li>
+    <li><b>Try different models:</b> Gemini, Gemma, GPT, and Claude may give different results, so often it is worth trying several models for best results</li>
     <li><b>Adjust minimum confidence:</b> Filter out low-confidence detections if needed by using the 'Conf. (%)' field. 80% makes a good starting point but try different values</li>
 </ul>
 
@@ -94,8 +81,8 @@ FAQ_CONTENT = """
 <h3>Q2: How accurate are the AI detections?</h3>
 <p>Accuracy varies depending on image quality, feature clarity, and AI model. Each detection includes a confidence score. You can adjust the confidence threshold to show only high-confidence detections.</p>
 
-<h3>Q3: Can I use both Gemini and GPT models?</h3>
-<p>Yes! You can switch between different AI models using the dropdown menu. Each model may provide different insights and detection capabilities.</p>
+<h3>Q3: Can I use multiple AI providers?</h3>
+<p>Yes! You can switch between Gemini, Gemma, GPT, and Claude models at any time using the dropdown menu. Gemini and Gemma share the same Google API key. GPT requires an OpenAI key, and Claude requires an Anthropic key. Each model may provide different insights and detection capabilities.</p>
 
 <h3>Q4: What if the AI doesn't detect what I'm looking for?</h3>
 <p>Try adjusting your prompt to be more specific, lower the confidence threshold, try a different AI model, or customize the rules to focus on the features you're interested in.</p>
@@ -104,7 +91,7 @@ FAQ_CONTENT = """
 <p>Yes! All analysis results are saved as GeoPackage files in the 'LandTalk.AI_Analysis' directory next to your QGIS project file. Check the Options button for alternatives to this behavior.</p>
 
 <h3>Q6: How do I customize the AI behavior?</h3>
-<p>Click the <a href='internal:rules'><b>Rules</b></a> button to edit the system prompt. This allows you to customize how the AI analyzes your maps, what features to focus on, and how to structure the output.</p>
+<p>Click the <b>Rules</b> button to customize how the AI analyzes your maps, what features to focus on, and how to structure the output.</p>
 
 <h3>Q7: What if I get an API key error?</h3>
 <p>Make sure you've entered a valid API key in the Options menu. Check that your API key has the necessary permissions and that you have sufficient credits/quota remaining.</p>
