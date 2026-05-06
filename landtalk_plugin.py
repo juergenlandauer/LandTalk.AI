@@ -91,6 +91,7 @@ class LandTalkPlugin:
         # API URLs and timeout
         self.gemini_api_url = PluginConstants.GEMINI_API_URL
         self.gpt_api_url = PluginConstants.GPT_API_URL
+        self.claude_api_url = PluginConstants.CLAUDE_API_URL
         self.api_timeout = PluginConstants.API_TIMEOUT
 
         # Fixed ground resolution in meters per pixel (applies to rendered output)
@@ -120,7 +121,7 @@ class LandTalkPlugin:
     def get_genai_handler(self):
         """Get GenAI handler, creating it lazily if needed"""
         if self.genai_handler is None:
-            self.genai_handler = GenAIHandler(self.gemini_api_url, self.gpt_api_url, self.api_timeout)
+            self.genai_handler = GenAIHandler(self.gemini_api_url, self.gpt_api_url, self.claude_api_url, self.api_timeout)
         return self.genai_handler
 
     def initGui(self):

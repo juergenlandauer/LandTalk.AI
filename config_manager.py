@@ -43,29 +43,31 @@ from .constants import PluginConstants
 
 class PluginConfigManager:
     """Manages plugin configuration, settings, and API keys"""
-    
+
     def __init__(self, plugin_dir, iface):
         """Initialize the configuration manager
-        
+
         Args:
             plugin_dir: Path to the plugin directory
             iface: QGIS interface object
         """
         self.plugin_dir = plugin_dir
         self.iface = iface
-        
+
         # File paths
         self.settings_file = os.path.join(plugin_dir, 'settings.txt')
         self.system_prompt_file = os.path.join(plugin_dir, 'systemprompt.txt')
-        
+
         # API configuration
         self.gemini_api_key = ""
         # Use a base Gemini API models URL; the specific model will be appended at runtime
         self.gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/"
         self.gpt_api_key = ""
         self.gpt_api_url = "https://api.openai.com/v1/chat/completions"
+        self.claude_api_key = ""
+        self.claude_api_url = PluginConstants.CLAUDE_API_URL
         self.api_timeout = 60
-        
+
         # Settings
         self.default_confidence_threshold = 50.0
         self.confidence_threshold = self.default_confidence_threshold
@@ -89,7 +91,7 @@ class PluginConfigManager:
         # `systemprompt.txt` contains the user's edited prompt (override).
         self.default_system_prompt_file = os.path.join(plugin_dir, 'defaultSystemprompt.txt')
         self.system_prompt_file = os.path.join(plugin_dir, 'systemprompt.txt')
-        
+
         # If a `systemprompt.txt` exists but no `defaultSystemprompt.txt`, migrate
         # the existing file to become the default (one-time migration).
         try:
@@ -101,13 +103,13 @@ class PluginConfigManager:
 
         # Load all configuration on initialization
         self.load_all_config()
-    
+
     def load_all_config(self):
         """Load all configuration files"""
         self.load_keys()
         self.load_settings()
         self.load_system_prompt()
-    
+
     def load_keys(self):
         """Load API keys from QSettings (with one-time migration from legacy keys.txt)"""
         settings = QSettings()
@@ -120,6 +122,7 @@ class PluginConfigManager:
                     keys_data = json.load(f)
                 settings.setValue("LandTalkAI/gemini_api_key", keys_data.get('gemini', ''))
                 settings.setValue("LandTalkAI/gpt_api_key", keys_data.get('gpt', ''))
+                settings.setValue("LandTalkAI/claude_api_key", keys_data.get('claude', ''))
                 os.remove(legacy_keys_file)
                 logger.info("API keys migrated from keys.txt to QSettings and legacy file removed")
             except Exception as e:
@@ -127,14 +130,16 @@ class PluginConfigManager:
 
         self.gemini_api_key = settings.value("LandTalkAI/gemini_api_key", "", type=str)
         self.gpt_api_key = settings.value("LandTalkAI/gpt_api_key", "", type=str)
+        self.claude_api_key = settings.value("LandTalkAI/claude_api_key", "", type=str)
         logger.info("API keys loaded from QSettings")
-    
+
     def save_keys(self):
         """Save API keys to QSettings"""
         try:
             settings = QSettings()
             settings.setValue("LandTalkAI/gemini_api_key", self.gemini_api_key)
             settings.setValue("LandTalkAI/gpt_api_key", self.gpt_api_key)
+            settings.setValue("LandTalkAI/claude_api_key", self.claude_api_key)
             logger.info("API keys saved to QSettings")
         except Exception as e:
             logger.error(f"Error saving API keys: {str(e)}")
@@ -143,7 +148,7 @@ class PluginConfigManager:
                 "Warning",
                 f"Could not save API keys: {str(e)}"
             )
-    
+
     def load_settings(self):
         """Load plugin settings from settings.txt file if it exists"""
         if os.path.exists(self.settings_file):
@@ -170,7 +175,7 @@ class PluginConfigManager:
             self.last_selected_model = ''  # No hard-coded default; UI determines default
             self.layer_persistence_mode = 'auto_save'
             self.wikidata_response_max_chars = PluginConstants.WIKIDATA_RESPONSE_MAX_CHARS
-    
+
     def save_settings(self):
         """Save plugin settings to settings.txt file"""
         try:
@@ -188,7 +193,7 @@ class PluginConfigManager:
             logger.info("Plugin settings saved to file")
         except Exception as e:
             logger.error(f"Error saving plugin settings: {str(e)}")
-    
+
     def get_gemini_key(self):
         """Get Gemini API key from the user"""
         dialog = ApiKeyDialog(
@@ -203,7 +208,7 @@ class PluginConfigManager:
             self.save_keys()
             return True
         return False
-    
+
     def get_gpt_key(self):
         """Get GPT API key from the user"""
         dialog = ApiKeyDialog(
@@ -218,11 +223,26 @@ class PluginConfigManager:
             self.save_keys()
             return True
         return False
-    
+
+    def get_claude_key(self):
+        """Get Claude API key from the user"""
+        dialog = ApiKeyDialog(
+            self.iface.mainWindow(),
+            "Claude API Key",
+            "anthropic",
+            self.claude_api_key
+        )
+
+        if dialog.exec_() == QDialog.Accepted:
+            self.claude_api_key = dialog.get_text()
+            self.save_keys()
+            return True
+        return False
+
     def get_confidence_threshold(self):
         """
         Get the confidence threshold value from stored settings.
-        
+
         :return: Float confidence threshold value (0-100)
         """
         try:
@@ -233,7 +253,7 @@ class PluginConfigManager:
         except (ValueError, TypeError):
             logger.warning(f"Invalid confidence threshold value: {getattr(self, 'confidence_threshold', 'None')}")
             return self.default_confidence_threshold
-    
+
     def load_system_prompt(self):
         """Load chat rules from systemprompt.txt file if it exists"""
         # Read default (read-only) prompt first, if available
@@ -261,7 +281,7 @@ class PluginConfigManager:
                 self.system_prompt = default_prompt
             else:
                 logger.info("No system prompt files found, using built-in default")
-    
+
     def save_system_prompt(self, prompt_text):
         """Save chat rules to systemprompt.txt file"""
         try:
@@ -276,7 +296,7 @@ class PluginConfigManager:
                 "Warning",
                 f"Could not save system prompt to file: {str(e)}"
             )
-    
+
     def edit_system_prompt(self):
         """Open Domain Wizard dialog to configure the AI system prompt."""
         dialog = DomainWizardDialog(
@@ -299,56 +319,56 @@ class PluginConfigManager:
                     "Warning",
                     "System prompt cannot be empty."
                 )
-    
+
     # Getters for configuration values
     def get_gemini_api_key(self):
         """Get the Gemini API key"""
         return self.gemini_api_key
-    
+
     def get_gpt_api_key(self):
         """Get the GPT API key"""
         return self.gpt_api_key
-    
+
     def get_system_prompt(self):
         """Get the system prompt"""
         return self.system_prompt
-    
+
     def get_last_selected_model(self):
         """Get the last selected model"""
         return self.last_selected_model
-    
+
     def set_last_selected_model(self, model):
         """Set the last selected model"""
         self.last_selected_model = model
         self.save_settings()
-    
+
     def get_auto_clear_on_model_change(self):
         """Get the auto clear on model change setting"""
         return self.auto_clear_on_model_change
-    
+
     def set_auto_clear_on_model_change(self, value):
         """Set the auto clear on model change setting"""
         self.auto_clear_on_model_change = value
         self.save_settings()
-    
+
     def get_show_tutorial(self):
         """Get the show tutorial setting"""
         return self.show_tutorial
-    
+
     def set_show_tutorial(self, value):
         """Set the show tutorial setting"""
         self.show_tutorial = value
         self.save_settings()
-    
+
     def get_custom_analysis_directory(self):
         """Get the custom analysis directory"""
         return self.custom_analysis_directory
-    
+
     def set_custom_analysis_directory(self, directory):
         """Set the custom analysis directory"""
         self.custom_analysis_directory = directory
         self.save_settings()
-    
+
     def set_confidence_threshold(self, threshold):
         """Set the confidence threshold"""
         self.confidence_threshold = threshold

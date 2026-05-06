@@ -2,7 +2,7 @@
 
 ![LandTalk Icon](icons/LT.AI.png)
 
- A QGIS plugin that allows users to analyze map areas using ChatGPT or Google's Gemini multimodal AI.
+ A QGIS plugin that allows users to analyze map areas using ChatGPT, Google Gemini, or Anthropic Claude.
 
  This work is based on our research published in MDPI Geomatics 2025: "Visual Foundation Models for Archaeological Remote Sensing: A Zero-Shot Approach" by Juergen Landauer and Sarah Klassen (available at https://doi.org/10.3390/geomatics5040052)
 
@@ -69,7 +69,7 @@ The plugin automatically respects QGIS proxy settings configured in **Settings**
 
 
  1. Click the LandTalk.ai Image Analysis icon in the QGIS toolbar
- 2. Enter your Google Gemini and/or OpenAI key when prompted (only required once)
+ 2. Enter your Gemini, OpenAI, or Claude API key when prompted (only required once)
  3. **New users**: Click the "Tutorial" button to see an interactive guide on how to use the plugin
  4. Draw a rectangle on the map to select the area you want to analyze
  5. Enter a text prompt in the dialog that appears

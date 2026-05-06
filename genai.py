@@ -37,12 +37,13 @@ from .constants import PluginConstants
 FULL_REQUEST = False
 
 class GenAIHandler:
-    """Handler for GenAI API interactions (Gemini and GPT)"""
+    """Handler for GenAI API interactions (Gemini, GPT, and Claude)"""
 
-    def __init__(self, gemini_api_url, gpt_api_url, api_timeout):
+    def __init__(self, gemini_api_url, gpt_api_url, claude_api_url, api_timeout):
         """Initialize with reference to the main plugin instance and API configuration"""
         self.gemini_api_url = gemini_api_url
         self.gpt_api_url = gpt_api_url
+        self.claude_api_url = claude_api_url
         self.api_timeout = api_timeout
         self.interrupt_flag = threading.Event()
         self.current_request = None
@@ -71,6 +72,8 @@ class GenAIHandler:
             return "gemini"
         elif model.startswith("gpt"):
             return "gpt"
+        elif model.startswith("claude"):
+            return "claude"
         return None
 
     def _sanitize_payload_for_logging(self, payload, provider):
@@ -95,11 +98,20 @@ class GenAIHandler:
                             if isinstance(item, dict) and item.get('type') == 'image_url':
                                 if 'image_url' in item and 'url' in item['image_url']:
                                     item['image_url']['url'] = "<image omitted>"
+        elif provider == "claude":
+            # Remove image data from Claude messages
+            if 'messages' in sanitized:
+                for message in sanitized['messages']:
+                    if isinstance(message.get('content'), list):
+                        for item in message['content']:
+                            if isinstance(item, dict) and item.get('type') == 'image':
+                                if 'source' in item and 'data' in item['source']:
+                                    item['source']['data'] = "<image omitted>"
         
         return sanitized
 
     def _log_request_messages(self, messages, provider):
-        """Log message contents for debugging (consolidated for both providers)"""
+        """Log message contents for debugging (consolidated for all providers)"""
         logger.info(f"=== {provider.upper()} Request Messages ===")
         for i, msg in enumerate(messages):
             if provider == "gemini":
@@ -111,16 +123,19 @@ class GenAIHandler:
                         logger.info(f"    Part {j+1} [text]: {part['text']}")
                     elif 'inline_data' in part:
                         logger.info(f"    Part {j+1} [image]: <image omitted>")
-            else:  # gpt
+            else:  # gpt or claude
                 role = msg.get('role', 'unknown')
                 content = msg.get('content', '')
                 logger.info(f"  Message {i+1} [{role}]:")
                 if isinstance(content, list):
                     for j, part in enumerate(content):
-                        if isinstance(part, dict) and part.get('type') == 'text':
-                            logger.info(f"    Part {j+1} [text]: {part.get('text', '')}")
-                        elif isinstance(part, dict) and part.get('type') == 'image_url':
-                            logger.info(f"    Part {j+1} [image]: <image omitted>")
+                        if isinstance(part, dict):
+                            if part.get('type') == 'text':
+                                logger.info(f"    Part {j+1} [text]: {part.get('text', '')}")
+                            elif part.get('type') == 'image_url':
+                                logger.info(f"    Part {j+1} [image]: <image omitted>")
+                            elif part.get('type') == 'image':
+                                logger.info(f"    Part {j+1} [image]: <image omitted>")
                 elif isinstance(content, str):
                     logger.info(f"    Content: {content}")
         logger.info(f"=== End {provider.upper()} Request Messages ===")
@@ -146,7 +161,8 @@ class GenAIHandler:
         
         # Check if API key is provided
         if not api_key:
-            provider_name = "Google Gemini" if provider == "gemini" else "OpenAI GPT"
+            provider_names = {"gemini": "Google Gemini", "gpt": "OpenAI GPT", "claude": "Anthropic Claude"}
+            provider_name = provider_names.get(provider, "AI")
             return {"success": False, "error": f"Please set your {provider_name} API key first.", "error_type": "api_key_required"}
         
         try:
@@ -158,6 +174,8 @@ class GenAIHandler:
                 headers, url, payload = self._prepare_gemini_request(image_data, prompt_text, chat_context, model, system_prompt, api_key)
             elif provider == "gpt":
                 headers, url, payload = self._prepare_gpt_request(image_data, prompt_text, chat_context, model, system_prompt, api_key)
+            elif provider == "claude":
+                headers, url, payload = self._prepare_claude_request(image_data, prompt_text, chat_context, model, system_prompt, api_key)
 
             # Log full request if FULL_REQUEST is enabled
             if FULL_REQUEST:
@@ -214,7 +232,12 @@ class GenAIHandler:
                 break
             
             # Parse provider-specific response
-            response = self._parse_gemini_response(response_json) if provider == "gemini" else self._parse_gpt_response(response_json)
+            if provider == "gemini":
+                response = self._parse_gemini_response(response_json)
+            elif provider == "gpt":
+                response = self._parse_gpt_response(response_json)
+            elif provider == "claude":
+                response = self._parse_claude_response(response_json)
             logger.info(f"{provider.upper()} parsed response received")
                 
 
@@ -385,6 +408,81 @@ class GenAIHandler:
 
         return headers, self.gpt_api_url, payload
 
+    def _prepare_claude_request(self, image_data, prompt_text, chat_history=None, model=None, system_prompt=None, api_key=None):
+        """Prepare Claude-specific request headers, URL, and payload"""
+        logger.info(f"Preparing Claude request - model: {model}, has_image: {bool(image_data)}")
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": PluginConstants.CLAUDE_API_VERSION
+        }
+
+        # Build messages array with images and text
+        messages = []
+
+        # 1. Add image(s) if available (as separate user message(s))
+        if image_data:
+            # Support both single image (string) and multiple images (list)
+            images_list = image_data if isinstance(image_data, list) else [image_data]
+
+            for img_data in images_list:
+                # Base64 encode the image if it's not already encoded
+                if isinstance(img_data, bytes) or not img_data.startswith("data:"):
+                    encoded_image = base64.b64encode(img_data).decode('utf-8') if isinstance(img_data, bytes) else img_data
+                else:
+                    # Remove data URI prefix if present
+                    if img_data.startswith("data:image/png;base64,"):
+                        encoded_image = img_data.replace("data:image/png;base64,", "")
+                    else:
+                        encoded_image = img_data
+
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": encoded_image
+                            }
+                        }
+                    ]
+                })
+
+        # 2. Add chat history
+        if chat_history:
+            for msg in chat_history:
+                role = msg.get('role', 'user')
+                content = msg.get('content', '')
+                # Convert 'assistant' to 'assistant', 'user' stays 'user'
+                if role == 'assistant':
+                    role = 'assistant'
+                else:
+                    role = 'user'
+                # Only add text content for history messages (no images)
+                messages.append({"role": role, "content": content})
+
+        # 3. New user message comes last (with system prompt prepended if available)
+        user_message_text = f"{system_prompt}\n{prompt_text}" if system_prompt else prompt_text
+        
+        # If we have existing messages, append text to the last message if it's a user message
+        if messages and messages[-1]["role"] == "user" and isinstance(messages[-1]["content"], list):
+            messages[-1]["content"].append({"type": "text", "text": user_message_text})
+        else:
+            messages.append({"role": "user", "content": user_message_text})
+
+        payload = {
+            "model": model if model else "claude-3-5-sonnet-20241022",
+            "max_tokens": 4096,
+            "messages": messages
+        }
+
+        logger.info(f"Claude request prepared - {len(messages)} messages, model: {model}")
+        self._log_request_messages(messages, "claude")
+
+        return headers, self.claude_api_url, payload
+
     def _parse_gemini_response(self, response_json):
         """Parse Gemini API response (already in correct format)"""
         return response_json
@@ -394,6 +492,25 @@ class GenAIHandler:
         # Extract the text from GPT response and normalize to Gemini format
         if 'choices' in response_json and len(response_json['choices']) > 0:
             result_text = response_json['choices'][0]['message']['content']
+            return {
+                "candidates": [{
+                    "content": {
+                        "parts": [{"text": result_text}]
+                    }
+                }]
+            }
+        return response_json
+
+    def _parse_claude_response(self, response_json):
+        """Parse Claude API response and normalize to Gemini format"""
+        # Extract the text from Claude response and normalize to Gemini format
+        if 'content' in response_json and len(response_json['content']) > 0:
+            # Claude returns content as a list of blocks
+            result_text = ""
+            for block in response_json['content']:
+                if block.get('type') == 'text':
+                    result_text += block.get('text', '')
+            
             return {
                 "candidates": [{
                     "content": {

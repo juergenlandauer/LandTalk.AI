@@ -21,7 +21,7 @@
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QCursor
 from qgis.PyQt.QtWidgets import QMessageBox, QApplication
-from qgis.core import QgsProject, Qgis
+from qgis.core import QgsProject
 from .logging import logger
 from .constants import PluginConstants
 from .ai_worker import AIWorker
@@ -255,12 +255,14 @@ class AnalysisCoordinator:
             model: Model name string
 
         Returns:
-            str: 'gemini', 'gpt', or None if unknown
+            str: 'gemini', 'gpt', 'claude', or None if unknown
         """
         if model.startswith("gemini"):
             return "gemini"
         elif model.startswith("gpt"):
             return "gpt"
+        elif model.startswith("claude"):
+            return "claude"
         return None
 
     def _get_prompt_text_with_context(self, user_input_text):
@@ -340,7 +342,7 @@ class AnalysisCoordinator:
         Get the API key for the specified AI provider.
 
         Args:
-            ai_provider: 'gemini' or 'gpt'
+            ai_provider: 'gemini', 'gpt', or 'claude'
 
         Returns:
             str: API key or None if not available
@@ -353,7 +355,7 @@ class AnalysisCoordinator:
                     QMessageBox.warning(self.plugin.dock_widget, "Error", "Please set your Google Gemini API key first.")
                     return None
             return self.config_manager.gemini_api_key
-        else:  # gpt
+        elif ai_provider == "gpt":
             if not self.config_manager.gpt_api_key:
                 if self.config_manager.get_gpt_key():
                     pass  # Key was set in config_manager
@@ -361,6 +363,15 @@ class AnalysisCoordinator:
                     QMessageBox.warning(self.plugin.dock_widget, "Error", "Please set your OpenAI GPT API key first.")
                     return None
             return self.config_manager.gpt_api_key
+        elif ai_provider == "claude":
+            if not self.config_manager.claude_api_key:
+                if self.config_manager.get_claude_key():
+                    pass  # Key was set in config_manager
+                if not self.config_manager.claude_api_key:
+                    QMessageBox.warning(self.plugin.dock_widget, "Error", "Please set your Anthropic Claude API key first.")
+                    return None
+            return self.config_manager.claude_api_key
+        return None
 
     def _start_worker(self, prompt_text, chat_context, model, api_key, all_images):
         """

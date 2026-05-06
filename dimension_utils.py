@@ -97,7 +97,7 @@ def format_dimension(dimension_meters):
         return "Unknown"
 
     if dimension_meters >= 1000:
-        return f"{dimension_meters/1000:.1f} km"
+        return f"{dimension_meters / 1000:.1f} km"
     elif dimension_meters >= 10:
         return f"{dimension_meters:.0f} m"
     else:

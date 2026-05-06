@@ -43,7 +43,7 @@ from qgis.PyQt.QtWidgets import (
     QDialog, QScrollArea, QActionGroup
 )
 from qgis.PyQt.QtCore import Qt, QTimer
-from qgis.PyQt.QtGui import QPixmap, QPainter, QKeySequence, QIntValidator
+from qgis.PyQt.QtGui import QPixmap, QPainter, QKeySequence
 try:
     from qgis.PyQt.QtWidgets import QShortcut
 except ImportError:
@@ -51,7 +51,7 @@ except ImportError:
 
 from .logging import logger
 from .tutorial_dialog import TutorialDialog
-from .platform_utils import IS_MACOS, scale_font, resolve_dock_widget_features
+from .platform_utils import IS_MACOS, resolve_dock_widget_features
 from .ui_styles import UIStyles
 from .dimension_utils import calculate_ground_dimensions, format_dimension
 from .constants import PluginConstants
@@ -750,7 +750,6 @@ class LandTalkDockWidget(QDockWidget):
         self.tutorial_button.setStyleSheet(UIStyles.button_options())
         self.tutorial_button.clicked.connect(self.show_tutorial)
 
-
     def _setup_controls(self, layout):
         """Setup control panel with AI model and confidence settings"""
         # Add menu bar to layout only on non-macOS systems
@@ -767,12 +766,9 @@ class LandTalkDockWidget(QDockWidget):
         self.ai_model_combo.addItem("gemma-4-31b-it", "gemma-4-31b-it")
         # MoE does not work well
         # self.ai_model_combo.addItem("gemma-4-26b-a4b-it (MoE)", "gemma-4-26b-a4b-it")
-        self.ai_model_combo.addItem("gemini-robotics-er-1.6 (recommended)",
-            "gemini-robotics-er-1.6-preview")
-        self.ai_model_combo.addItem("gemini-3-flash (recommended)",
-            "gemini-3-flash-preview"    )
-        self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)",
-            "gemini-3.1-flash-lite-preview")
+        self.ai_model_combo.addItem("gemini-robotics-er-1.6 (recommended)", "gemini-robotics-er-1.6-preview")
+        self.ai_model_combo.addItem("gemini-3-flash (recommended)", "gemini-3-flash-preview")
+        self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)", "gemini-3.1-flash-lite-preview")
         self.ai_model_combo.addItem("gemini-3.1-pro", "gemini-3.1-pro-preview")
         self.ai_model_combo.addItem("gpt-5.5", "gpt-5.5")
         self.ai_model_combo.addItem("gpt-5.4", "gpt-5.4")
@@ -1024,8 +1020,7 @@ class LandTalkDockWidget(QDockWidget):
         # Escape key to interrupt AI response
         escape_shortcut = QShortcut(QKeySequence("Escape"), self)
         escape_shortcut.activated.connect(self.interrupt_ai_request)
-    
-    
+
     def on_select_area_clicked(self):
         """Handle the select area button click"""
         if self.parent_plugin:
@@ -1053,7 +1048,7 @@ class LandTalkDockWidget(QDockWidget):
                 display_width = max_display_width
                 display_height = int(max_display_width / pixmap_aspect_ratio)
             else:
-                # Pixmap is taller, constrain by height  
+                # Pixmap is taller, constrain by height
                 display_height = max_display_height
                 display_width = int(max_display_height * pixmap_aspect_ratio)
             
@@ -1122,7 +1117,6 @@ class LandTalkDockWidget(QDockWidget):
                 self.resolution_combo.setCurrentIndex(self.last_selected_resolution_index)
             self.width_value.setText("Error")
             self.height_value.setText("Error")
-        
     def clear_thumbnail_display(self):
         """Clear the thumbnail display"""
         self.thumbnail_image_label.clear()
@@ -1132,7 +1126,6 @@ class LandTalkDockWidget(QDockWidget):
             self.resolution_combo.setCurrentIndex(self.last_selected_resolution_index)
         self.width_value.setText("")
         self.height_value.setText("")
-    
     def on_thumbnail_clicked(self, event):
         """Handle thumbnail click to show full-size image popup"""
         try:
@@ -1163,21 +1156,19 @@ class LandTalkDockWidget(QDockWidget):
                 "Error",
                 f"Failed to display full-size image: {str(e)}"
             )
-        
     def send_message_to_selected_ai(self):
         """Send message to the currently selected AI model"""
         if not self.parent_plugin:
             return
-        
+
         # Get prompt text from UI and validate
         prompt_text = self.prompt_text.toPlainText().strip()
         
         # Debug: log the text being processed
         logger.info(f"send_message_to_selected_ai: prompt_text = '{prompt_text}' (length: {len(prompt_text)})")
-                
         # Get the selected AI model from the dropdown
         selected_model = self.ai_model_combo.currentData()
-        
+
         # Route to the unified AI analysis function
         self.parent_plugin.analyze_with_ai_ui(selected_model)
     
@@ -1185,9 +1176,9 @@ class LandTalkDockWidget(QDockWidget):
         """Interrupt the current AI request when Escape is pressed"""
         if not self.parent_plugin:
             return
-        
+
         logger.info("Escape key pressed - interrupting AI request")
-        
+
         # Interrupt the current request in the genai handler
         if hasattr(self.parent_plugin, 'genai_handler'):
             # Check if the interrupt method exists (for backward compatibility)
@@ -1195,7 +1186,7 @@ class LandTalkDockWidget(QDockWidget):
                 self.parent_plugin.genai_handler.interrupt_request()
             else:
                 logger.warning("GenAI handler does not support interruption - plugin may need to be restarted")
-        
+
         # Clean up the AI worker if it's running
         if hasattr(self.parent_plugin, 'ai_worker') and self.parent_plugin.ai_worker:
             if self.parent_plugin.ai_worker.isRunning():
@@ -1203,14 +1194,14 @@ class LandTalkDockWidget(QDockWidget):
                 self.parent_plugin.ai_worker.terminate()
                 self.parent_plugin.ai_worker.wait()
                 self.parent_plugin.ai_worker = None
-        
+
         # Add a system message to the chat
         self.add_system_message("Request interrupted by user (Escape key pressed)")
-        
+
         # Re-enable the UI
         self.setEnabled(True)
         QApplication.restoreOverrideCursor()
-        
+
         # Re-enable the send button
         if hasattr(self, 'send_button'):
             self.send_button.setEnabled(True)
@@ -1251,7 +1242,7 @@ class LandTalkDockWidget(QDockWidget):
         self.chat_display.ensureCursorVisible()
         scrollbar = self.chat_display.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-    
+
     def add_system_message(self, message):
         """Add a system message to the chat display"""
         self._add_chat_message(message, 'system', 'System')
@@ -1259,7 +1250,7 @@ class LandTalkDockWidget(QDockWidget):
     def add_user_message(self, message):
         """Add a user message to the chat display"""
         self._add_chat_message(message, 'user', 'You')
-    
+
     def show_tutorial(self):
         """Show the tutorial dialog"""
         try:
@@ -1280,8 +1271,7 @@ class LandTalkDockWidget(QDockWidget):
                 "Error",
                 f"Failed to show tutorial: {str(e)}"
             )
-    
-    
+
     def json_to_bullet_points(self, json_data, bg_color="#f8f9fa"):
         """Convert JSON data to HTML format reflecting layer names"""
         if isinstance(json_data, list):
@@ -1410,7 +1400,6 @@ class LandTalkDockWidget(QDockWidget):
             return f"{value:.2f}"
         else:
             return str(value)
-    
 
     def add_ai_message(self, message, ai_provider, json_data=None):
         """Add an AI response message to the chat display"""
@@ -1449,8 +1438,7 @@ class LandTalkDockWidget(QDockWidget):
         self.chat_display.ensureCursorVisible()
         scrollbar = self.chat_display.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-    
-    
+
     def on_model_changed(self):
         """Handle AI model selection change - auto-clear chat if setting is enabled"""
         if hasattr(self, 'parent_plugin') and self.parent_plugin:
