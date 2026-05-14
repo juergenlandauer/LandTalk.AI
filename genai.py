@@ -473,7 +473,7 @@ class GenAIHandler:
             messages.append({"role": "user", "content": user_message_text})
 
         payload = {
-            "model": model if model else "claude-3-5-sonnet-20241022",
+            "model": model if model else "claude-sonnet-4-6",
             "max_tokens": 4096,
             "messages": messages
         }

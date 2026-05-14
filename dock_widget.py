@@ -673,11 +673,13 @@ class LandTalkDockWidget(QDockWidget):
         self.logging_action = QAction("Save Log File", self.main_widget)
         self.gemini_key_action = QAction("Set Gemini API Key", self.main_widget)
         self.gpt_key_action = QAction("Set GPT API Key", self.main_widget)
+        self.claude_key_action = QAction("Set Claude API Key", self.main_widget)
 
         # Connect actions to functions
         self.logging_action.triggered.connect(self.save_log_file)
         self.gemini_key_action.triggered.connect(lambda: self.parent_plugin.config_manager.get_gemini_key() if self.parent_plugin else None)
         self.gpt_key_action.triggered.connect(lambda: self.parent_plugin.config_manager.get_gpt_key() if self.parent_plugin else None)
+        self.claude_key_action.triggered.connect(lambda: self.parent_plugin.config_manager.get_claude_key() if self.parent_plugin else None)
 
         # Create layer persistence submenu
         self.layer_persistence_menu = QMenu("Layer Persistence", self.settings_menu)
@@ -722,6 +724,7 @@ class LandTalkDockWidget(QDockWidget):
         self.settings_menu.addSeparator()
         self.settings_menu.addAction(self.gemini_key_action)
         self.settings_menu.addAction(self.gpt_key_action)
+        self.settings_menu.addAction(self.claude_key_action)
 
         # Create prefs button
         self.prefs_button = QPushButton("Options")
@@ -774,7 +777,7 @@ class LandTalkDockWidget(QDockWidget):
         self.ai_model_combo.addItem("gpt-5.4", "gpt-5.4")
         self.ai_model_combo.addItem("gpt-5.4-mini", "gpt-54-mini")
         self.ai_model_combo.addItem("gpt-5.4-nano", "gpt-5.4-nano")
-        self.ai_model_combo.addItem("claude-opus-4-6", "claude-opus-4-6")
+        self.ai_model_combo.addItem("claude-opus-4-7", "claude-opus-4-7")
         self.ai_model_combo.addItem("claude-sonnet-4-6", "claude-sonnet-4-6")
 
         # Select gemini-robotics by default
@@ -1411,11 +1414,21 @@ class LandTalkDockWidget(QDockWidget):
             border_color = "#4caf50"
             text_color = "#388e3c"
             provider_name = "Gemini"
-        else:  # GPT or unknown/None
+        elif ai_provider and ai_provider.lower() == 'claude':
+            bg_color = "#fff3e0"
+            border_color = "#ff7043"
+            text_color = "#e64a19"
+            provider_name = "Claude"
+        elif ai_provider and ai_provider.lower() == 'gpt':
             bg_color = "#ffebee"
             border_color = "#f44336"
             text_color = "#d32f2f"
-            provider_name = "GPT" if ai_provider else "Unknown"
+            provider_name = "GPT"
+        else:
+            bg_color = "#ffebee"
+            border_color = "#f44336"
+            text_color = "#d32f2f"
+            provider_name = "Unknown"
         
         # If JSON data is provided, show only the structured data
         if json_data:
