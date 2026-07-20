@@ -251,11 +251,11 @@ class LandTalkPlugin:
                     "Do you want to save them to a GeoPackage file?\n\n"
                     "Yes: Layers will be saved and persisted\n"
                     "No: Layers will remain temporary (memory-only) and lost on project close",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.Yes
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
                 )
 
-                if reply == QMessageBox.Yes:
+                if reply == QMessageBox.StandardButton.Yes:
                     # User chose to save
                     logger.info("User chose to save temporary layers before project save")
 
@@ -568,7 +568,7 @@ class LandTalkPlugin:
         if self.rubber_band:
             self.map_canvas.scene().removeItem(self.rubber_band)
         
-        self.rubber_band = QgsRubberBand(self.map_canvas, QgsWkbTypes.LineGeometry)
+        self.rubber_band = QgsRubberBand(self.map_canvas, QgsWkbTypes.GeometryType.LineGeometry)
         self.rubber_band.setColor(QColor(255, 255, 255, 255))  # White color
         self.rubber_band.setWidth(3)  # Slightly thicker for better visibility
         self.rubber_band.setSecondaryStrokeColor(QColor(0, 0, 0, 255))  # Black outline

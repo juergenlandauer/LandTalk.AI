@@ -203,7 +203,7 @@ class PluginConfigManager:
             self.gemini_api_key
         )
 
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             self.gemini_api_key = dialog.get_text()
             self.save_keys()
             return True
@@ -218,7 +218,7 @@ class PluginConfigManager:
             self.gpt_api_key
         )
 
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             self.gpt_api_key = dialog.get_text()
             self.save_keys()
             return True
@@ -233,7 +233,7 @@ class PluginConfigManager:
             self.claude_api_key
         )
 
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             self.claude_api_key = dialog.get_text()
             self.save_keys()
             return True
@@ -304,7 +304,7 @@ class PluginConfigManager:
             current_prompt=self.system_prompt,
             plugin_dir=self.plugin_dir,
         )
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             new_prompt = dialog.get_prompt()
             if new_prompt:
                 self.save_system_prompt(new_prompt)

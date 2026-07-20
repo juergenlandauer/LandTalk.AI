@@ -261,7 +261,7 @@ class DomainWizardDialog(QDialog):
         outer.addWidget(sub)
 
         sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
+        sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet("color: #dee2e6;")
         outer.addWidget(sep)
 
@@ -292,7 +292,7 @@ class DomainWizardDialog(QDialog):
         layout.addLayout(row)
 
         sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
+        sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet("color: #dee2e6;")
         layout.addWidget(sep)
 
@@ -635,10 +635,10 @@ class DomainWizardDialog(QDialog):
             self,
             "Reset to Default",
             "This will replace your current settings with the original Archaeology defaults.\n\nContinue?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if resp != QMessageBox.Yes:
+        if resp != QMessageBox.StandardButton.Yes:
             return
         try:
             with open(default_file, "r", encoding="utf-8") as f:

@@ -57,7 +57,7 @@ class RectangleMapTool(QgsMapTool):
     def __init__(self, canvas):
         QgsMapTool.__init__(self, canvas)
         self.canvas = canvas
-        self.rubber_band = QgsRubberBand(canvas, QgsWkbTypes.LineGeometry)
+        self.rubber_band = QgsRubberBand(canvas, QgsWkbTypes.GeometryType.LineGeometry)
         self.rubber_band.setColor(QColor(255, 255, 255, 255))  # White color
         self.rubber_band.setWidth(2)  # Slightly thicker for better visibility
         self.rubber_band.setSecondaryStrokeColor(QColor(0, 0, 0, 255))  # Black outline
@@ -88,7 +88,7 @@ class RectangleMapTool(QgsMapTool):
         self.start_point = self.toMapCoordinates(event.pos())
         self.end_point = self.start_point
         self.is_drawing = True
-        self.rubber_band.reset(QgsWkbTypes.LineGeometry)
+        self.rubber_band.reset(QgsWkbTypes.GeometryType.LineGeometry)
         
     def canvasMoveEvent(self, event):
         if not self.start_point or not self.is_drawing:
@@ -97,7 +97,7 @@ class RectangleMapTool(QgsMapTool):
         self.end_point = self.toMapCoordinates(event.pos())
         
         # Update the rubber band
-        self.rubber_band.reset(QgsWkbTypes.LineGeometry)
+        self.rubber_band.reset(QgsWkbTypes.GeometryType.LineGeometry)
         
         # Get the rectangle in pixels
         rect = self.get_rectangle()
@@ -122,12 +122,7 @@ class RectangleMapTool(QgsMapTool):
 
     def keyPressEvent(self, event):
         """Handle key press events - cancel selection on Escape"""
-        try:
-            escape_key = Qt.Key.Key_Escape
-        except AttributeError:
-            escape_key = Qt.Key_Escape
-
-        if event.key() == escape_key:
+        if event.key() == Qt.Key.Key_Escape:
             logger.info("Escape key pressed - cancelling rectangle selection")
             self.rubber_band.reset()
             self.start_point = None
@@ -422,7 +417,7 @@ class MapRenderer:
 
         # Convert directly to base64 without intermediate file I/O
         buffer = QBuffer()
-        buffer.open(QIODevice.WriteOnly)
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         rendered_image.save(buffer, "PNG")
         encoded_image = base64.b64encode(buffer.data()).decode('utf-8')
         buffer.close()

@@ -293,12 +293,12 @@ class LayerManager:
                 file_path,
                 "UTF-8",
                 fields,
-                QgsWkbTypes.Polygon,
+                QgsWkbTypes.Type.Polygon,
                 crs,
                 "GPKG"
             )
             
-            if writer.hasError() != QgsVectorFileWriter.NoError:
+            if writer.hasError() != QgsVectorFileWriter.WriterError.NoError:
                 logger.error(f"Error creating GeoPackage: {writer.errorMessage()}")
                 return None
             
@@ -733,20 +733,20 @@ class LayerManager:
             geometry_type = layer.geometryType()
 
             style_configs = {
-                QgsWkbTypes.PointGeometry: (QgsMarkerSymbol, {
+                QgsWkbTypes.GeometryType.PointGeometry: (QgsMarkerSymbol, {
                     'name': 'circle',
                     'color': '255,255,0,0',
                     'outline_color': '255,255,0,255',
                     'outline_width': '0.5',
                     'size': '3'
                 }),
-                QgsWkbTypes.PolygonGeometry: (QgsFillSymbol, {
+                QgsWkbTypes.GeometryType.PolygonGeometry: (QgsFillSymbol, {
                     'color': '255,255,0,0',
                     'outline_color': '255,255,0,255',
                     'outline_width': '0.5',
                     'outline_style': 'solid'
                 }),
-                QgsWkbTypes.LineGeometry: (QgsLineSymbol, {
+                QgsWkbTypes.GeometryType.LineGeometry: (QgsLineSymbol, {
                     'color': '255,255,0,255',
                     'width': '0.5'
                 })
@@ -836,9 +836,9 @@ class LayerManager:
             for idx, layer in enumerate(layers_to_save):
                 # First layer creates the file, subsequent layers append
                 if idx == 0:
-                    save_options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+                    save_options.actionOnExistingFile = QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteFile
                 else:
-                    save_options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+                    save_options.actionOnExistingFile = QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer
 
                 # Sanitize layer name for OGR compatibility
                 original_name = layer.name()
@@ -855,7 +855,7 @@ class LayerManager:
                     save_options
                 )
 
-                if error[0] != QgsVectorFileWriter.NoError:
+                if error[0] != QgsVectorFileWriter.WriterError.NoError:
                     logger.error(f"Error saving layer {original_name}: {error}")
                 else:
                     logger.info(f"Successfully saved layer: {original_name} -> {sanitized_name}")

@@ -80,7 +80,7 @@ class Logging:
             QgsMessageLog.logMessage(
                 f"Failed to create log file: {str(e)}", 
                 self.plugin_name, 
-                Qgis.Warning
+                Qgis.MessageLevel.Warning
             )
             self.log_file_path = None
     
@@ -111,7 +111,7 @@ class Logging:
             QgsMessageLog.logMessage(
                 f"Failed to write to log file: {str(e)}", 
                 self.plugin_name, 
-                Qgis.Warning
+                Qgis.MessageLevel.Warning
             )
     
     def debug(self, message: str, tag: Optional[str] = None):
@@ -126,7 +126,7 @@ class Logging:
         if tag:
             full_message = f"[{tag}] {full_message}"
         
-        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.Info)
+        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.MessageLevel.Info)
         self._write_to_file("DEBUG", full_message)
     
     def info(self, message: str, tag: Optional[str] = None):
@@ -141,7 +141,7 @@ class Logging:
         if tag:
             full_message = f"[{tag}] {full_message}"
         
-        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.Info)
+        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.MessageLevel.Info)
         self._write_to_file("INFO", full_message)
     
     def warning(self, message: str, tag: Optional[str] = None):
@@ -156,7 +156,7 @@ class Logging:
         if tag:
             full_message = f"[{tag}] {full_message}"
         
-        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.Warning)
+        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.MessageLevel.Warning)
         self._write_to_file("WARNING", full_message)
     
     def error(self, message: str, tag: Optional[str] = None):
@@ -171,7 +171,7 @@ class Logging:
         if tag:
             full_message = f"[{tag}] {full_message}"
         
-        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.Critical)
+        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.MessageLevel.Critical)
         self._write_to_file("ERROR", full_message)
     
     def critical(self, message: str, tag: Optional[str] = None):
@@ -186,7 +186,7 @@ class Logging:
         if tag:
             full_message = f"[{tag}] {full_message}"
         
-        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.Critical)
+        QgsMessageLog.logMessage(full_message, self.plugin_name, Qgis.MessageLevel.Critical)
         self._write_to_file("CRITICAL", full_message)
     
     def log(self, level: str, message: str, tag: Optional[str] = None):
