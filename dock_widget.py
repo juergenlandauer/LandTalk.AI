@@ -771,17 +771,18 @@ class LandTalkDockWidget(QDockWidget):
         # self.ai_model_combo.addItem("gemma-4-26b-a4b-it (MoE)", "gemma-4-26b-a4b-it")
         self.ai_model_combo.addItem("gemini-robotics-er-1.6 (recommended)", "gemini-robotics-er-1.6-preview")
         self.ai_model_combo.addItem("gemini-3-flash (recommended)", "gemini-3-flash-preview")
+        self.ai_model_combo.addItem("gemini-3.5-flash (recommended)", "gemini-3.5-flash-preview")
         self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)", "gemini-3.1-flash-lite-preview")
         self.ai_model_combo.addItem("gemini-3.1-pro", "gemini-3.1-pro-preview")
+        self.ai_model_combo.addItem("gpt-5.6-luna", "gpt-5.6-luna (recommended)")
         self.ai_model_combo.addItem("gpt-5.5", "gpt-5.5")
-        self.ai_model_combo.addItem("gpt-5.4", "gpt-5.4")
         self.ai_model_combo.addItem("gpt-5.4-mini", "gpt-54-mini")
-        self.ai_model_combo.addItem("gpt-5.4-nano", "gpt-5.4-nano")
-        self.ai_model_combo.addItem("claude-opus-4-7", "claude-opus-4-7")
+        self.ai_model_combo.addItem("claude-fable-5", "claude-fable-5")
+        self.ai_model_combo.addItem("claude-opus-4-8", "claude-opus-4-8")
         self.ai_model_combo.addItem("claude-sonnet-4-6", "claude-sonnet-4-6")
 
-        # Select gemini-robotics by default
-        idx = self.ai_model_combo.findData("gemini-3-flash-preview")
+        # Select gemini
+        idx = self.ai_model_combo.findData("gemini-3-flash")
         if idx != -1:
             self.ai_model_combo.setCurrentIndex(idx)
         else:
@@ -938,7 +939,7 @@ class LandTalkDockWidget(QDockWidget):
         layout.addWidget(self.chat_display)
 
         # Add initial welcome message
-        self.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini 3 models currently provide best results.")
+        self.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini and Openai models currently provide best results.")
 
     def _setup_input_section(self, layout):
         """Setup input section with text area and buttons"""
@@ -1475,7 +1476,7 @@ class LandTalkDockWidget(QDockWidget):
                     # Ensure a fresh map image will be captured for the next chat
                     if hasattr(self, 'parent_plugin') and self.parent_plugin:
                         self.parent_plugin.captured_image_data = None
-                    self.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini 3 models currently provide best results.")
+                    self.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini and Openai models currently provide best results.")
                     # Also clear the rectangular selection when model changes
                     self.parent_plugin.cleanup_selection()
     

@@ -84,6 +84,10 @@ class SimpleNetworkHandler:
             error_msg = f"HTTP error {response.status_code}: {str(e)}"
             logger.error(error_msg)
             logger.error(f"Full request - URL: {url}")
+            try:
+                logger.error(f"Response body: {response.json()}")
+            except Exception:
+                logger.error(f"Response body: {response.text}")
             return {
                 'success': False,
                 'error': error_msg,

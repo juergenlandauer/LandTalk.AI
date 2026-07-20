@@ -3,7 +3,7 @@
  qgisMinimumVersion=3.26
  qgisMaximumVersion=4.99
  description="LandTalk.AI - Your Landscape Talks With You using AI: Analyze map areas using Google Gemini, ChatGPT, or Claude multimodal AI.
- version=1.3.2
+ version=1.3.3
  author=Juergen Landauer
  email=juergen@landauer-ai.de
  license=GPL-3.0

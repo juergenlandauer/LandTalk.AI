@@ -201,18 +201,14 @@ class ApiKeyDialog(QDialog):
             <strong>Setup Steps:</strong>
             <ol>
                 <li>Register with Google (
-                    also works with your Gmail account)</li>                <li>Login here and get your API key: <a href= (
-                    "https://aistudio.google.com/apikey" style="color: #4285f4;">https://aistudio.google.com/apikey</a></li>
-                )
+                    also works with your Gmail account)</li>                <li>Login here and get your API key: <a href="https://aistudio.google.com/apikey" style="color: #4285f4;">https://aistudio.google.com/apikey</a></li>
                 <li>Click <strong>Copy</strong>. This will place your private key in the clipboard.</li>
                 <li>Paste the key in the field below.</li>
             </ol>
         </div>
 
 
-        <p><strong>Additional Resources:</strong> <a href= (
-            "https://github.com/google-gemini/gemini-api-cookbook/blob/main/quickstarts/Authentication.ipynb" style="color: #4285f4;">Authentication Guide</a></p>
-        )
+        <p><strong>Additional Resources:</strong> <a href="https://github.com/google-gemini/gemini-api-cookbook/blob/main/quickstarts/Authentication.ipynb" style="color: #4285f4;">Authentication Guide</a></p>
         """
 
     def _get_openai_instructions(self):
@@ -224,9 +220,7 @@ class ApiKeyDialog(QDialog):
         <div style="background-color: #e8f0fe; padding: 10px; border-radius: 5px; border-left: 4px solid #007acc; margin: 5px 0;">
             <strong>Setup Steps:</strong>
             <ol>
-                <li>Register with <a href= (
-                    "https://auth.openai.com/create-account" style="color: #007acc;">OpenAI</a></li>
-                )
+                <li>Register with <a href="https://auth.openai.com/create-account" style="color: #007acc;">OpenAI</a></li>
                 <li>Open your OpenAI Settings page. Click <strong>User API keys</strong> then <strong>Create new secret key</strong> to generate new token.</li>
                 <li>Click <strong>Copy</strong>. This will place your private key in the clipboard.</li>
                 <li>Paste the key in the field below.</li>
@@ -244,9 +238,7 @@ class ApiKeyDialog(QDialog):
         <div style="background-color: #f0f4ff; padding: 10px; border-radius: 5px; border-left: 4px solid #7c3aed; margin: 5px 0;">
             <strong>Setup Steps:</strong>
             <ol>
-                <li>Register at <a href= (
-                    "https://console.anthropic.com" style="color: #7c3aed;">https://console.anthropic.com</a></li>
-                )
+                <li>Register at <a href="https://console.anthropic.com" style="color: #7c3aed;">https://console.anthropic.com</a></li>
                 <li>Go to <strong>API Keys</strong> and click <strong>Create Key</strong>.</li>
                 <li>Click <strong>Copy</strong>. This will place your private key in the clipboard.</li>
                 <li>Paste the key in the field below.</li>

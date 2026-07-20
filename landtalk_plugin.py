@@ -600,7 +600,7 @@ class LandTalkPlugin:
         self.dock_widget.clear_thumbnail_display()
         # Ensure a fresh map image will be captured for the next chat
         self.capture_state.image_data = None
-        self.dock_widget.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini 3 models currently provide best results.")
+        self.dock_widget.add_system_message("Click 'Select area' above to choose a new map area and start a new conversation. Type a message (optional) and click 'Analyze'. Gemini and Openai models currently provide best results.")
         
         # Capture the high-resolution map image first (so thumbnail can be created from it)
         logger.info("Capturing high-resolution map image immediately after rectangle selection")

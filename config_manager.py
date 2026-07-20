@@ -229,7 +229,7 @@ class PluginConfigManager:
         dialog = ApiKeyDialog(
             self.iface.mainWindow(),
             "Claude API Key",
-            "anthropic",
+            "claude",
             self.claude_api_key
         )
 
