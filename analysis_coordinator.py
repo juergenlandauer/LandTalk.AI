@@ -196,8 +196,8 @@ class AnalysisCoordinator:
                     if result.get("image_data"):
                         try:
                             self._create_error_extent_layer(ai_provider, model_name)
-                        except Exception:
-                            pass  # Don't let bounding box creation errors mask the original error
+                        except Exception as e:
+                            logger.warning("Failed to create error extent layer: %s", e)
 
         except Exception as e:
             dock_widget.add_ai_message(f"Unexpected error: {str(e)}", ai_provider)

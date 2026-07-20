@@ -722,8 +722,8 @@ class LandTalkPlugin:
             if self.map_tool.rubber_band:
                 try:
                     self.map_canvas.scene().removeItem(self.map_tool.rubber_band)
-                except:
-                    pass  # Ignore if already removed
+                except Exception as e:
+                    logger.debug("Rubber band already removed from scene: %s", e)
                 self.map_tool.rubber_band.reset()
         
         # Clear the selected rectangle reference
@@ -873,9 +873,9 @@ class LandTalkPlugin:
             # Clean up temporary file
             try:
                 os.remove(temp_image_path)
-            except Exception:
-                pass
-                
+            except Exception as e:
+                logger.debug("Failed to remove temporary image file: %s", e)
+
         except Exception as e:
             logger.error(f"Error in debug_render_ai_results_on_image: {str(e)}")
         finally:

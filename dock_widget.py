@@ -1894,7 +1894,7 @@ class LandTalkDockWidget(QDockWidget):
         max_chars = PluginConstants.WIKIPEDIA_CONTENT_MAX_CHARS
 
         if len(wikipedia_urls) > urls_to_fetch:
-            selected_urls = random.sample(wikipedia_urls, urls_to_fetch)
+            selected_urls = random.SystemRandom().sample(wikipedia_urls, urls_to_fetch)
             logger.info(f"Randomly selected {urls_to_fetch} URLs from {len(wikipedia_urls)} available")
         else:
             selected_urls = wikipedia_urls

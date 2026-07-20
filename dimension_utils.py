@@ -58,8 +58,8 @@ def calculate_ground_dimensions(parent_plugin):
                 )
                 try:
                     distance_calc.setEllipsoid(QgsProject.instance().ellipsoid())
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Could not set ellipsoid; using default: %s", e)
 
             # Calculate width (horizontal distance)
             width_meters = distance_calc.measureLine(

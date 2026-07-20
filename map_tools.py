@@ -447,8 +447,8 @@ class MapRenderer:
                                    QgsProject.instance().transformContext())
         try:
             distance_calc.setEllipsoid(QgsProject.instance().ellipsoid())
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Could not set ellipsoid; using default: %s", e)
 
         center_x = (top_left_map.x() + bottom_right_map.x()) / 2.0
         center_y = (top_left_map.y() + bottom_right_map.y()) / 2.0
