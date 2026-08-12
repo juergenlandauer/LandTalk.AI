@@ -345,7 +345,7 @@ class DomainWizardDialog(QDialog):
 
         # Live preview
         sep2 = QFrame()
-        sep2.setFrameShape(QFrame.HLine)
+        sep2.setFrameShape(QFrame.Shape.HLine)
         sep2.setStyleSheet("color: #dee2e6;")
         layout.addWidget(sep2)
 
