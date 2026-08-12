@@ -34,7 +34,7 @@ from .simple_network_handler import SimpleNetworkHandler
 from .constants import PluginConstants
 
 # Global variable to control full request/response logging
-FULL_REQUEST = False
+FULL_REQUEST = False #True
 
 class GenAIHandler:
     """Handler for GenAI API interactions (Gemini, GPT, and Claude)"""

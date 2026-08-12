@@ -769,20 +769,21 @@ class LandTalkDockWidget(QDockWidget):
         self.ai_model_combo.addItem("gemma-4-31b-it", "gemma-4-31b-it")
         # MoE does not work well
         # self.ai_model_combo.addItem("gemma-4-26b-a4b-it (MoE)", "gemma-4-26b-a4b-it")
-        self.ai_model_combo.addItem("gemini-robotics-er-1.6 (recommended)", "gemini-robotics-er-1.6-preview")
-        self.ai_model_combo.addItem("gemini-3-flash (recommended)", "gemini-3-flash-preview")
-        self.ai_model_combo.addItem("gemini-3.5-flash (recommended)", "gemini-3.5-flash-preview")
-        self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)", "gemini-3.1-flash-lite-preview")
+        self.ai_model_combo.addItem("gemini-robotics-er-2 (recommended)", "gemini-robotics-er-2-preview")
+        self.ai_model_combo.addItem("gemini-3.5-flash (recommended)", "gemini-3.5-flash")
+        self.ai_model_combo.addItem("gemini-3.5-flash-lite (recommended)", "gemini-3.5-flash-lite")
+        self.ai_model_combo.addItem("gemini-3.6-flash (recommended)", "gemini-3.6-flash")
+        self.ai_model_combo.addItem("gemini-3.1-flash-lite (recommended)", "gemini-3.1-flash-lite")
         self.ai_model_combo.addItem("gemini-3.1-pro", "gemini-3.1-pro-preview")
-        self.ai_model_combo.addItem("gpt-5.6-luna", "gpt-5.6-luna (recommended)")
+        self.ai_model_combo.addItem("gpt-5.6-luna (recommended)", "gpt-5.6-luna")
         self.ai_model_combo.addItem("gpt-5.5", "gpt-5.5")
-        self.ai_model_combo.addItem("gpt-5.4-mini", "gpt-54-mini")
+        self.ai_model_combo.addItem("gpt-5.4-mini", "gpt-5.4-mini")
         self.ai_model_combo.addItem("claude-fable-5", "claude-fable-5")
         self.ai_model_combo.addItem("claude-opus-4-8", "claude-opus-4-8")
         self.ai_model_combo.addItem("claude-sonnet-4-6", "claude-sonnet-4-6")
 
         # Select gemini
-        idx = self.ai_model_combo.findData("gemini-3-flash")
+        idx = self.ai_model_combo.findData("gemini-3.5-flash")
         if idx != -1:
             self.ai_model_combo.setCurrentIndex(idx)
         else:
