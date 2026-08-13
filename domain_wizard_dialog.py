@@ -416,15 +416,15 @@ class DomainWizardDialog(QDialog):
     @staticmethod
     def _make_field_label(title: str, hint: str) -> QWidget:
         w = QWidget()
-        l = QVBoxLayout(w)
-        l.setContentsMargins(0, 0, 0, 0)
-        l.setSpacing(1)
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
         title_lbl = QLabel(title)
         title_lbl.setStyleSheet("font-weight: bold; font-size: 11px;")
         hint_lbl = QLabel(hint)
         hint_lbl.setStyleSheet("color: #888; font-size: 10px;")
-        l.addWidget(title_lbl)
-        l.addWidget(hint_lbl)
+        layout.addWidget(title_lbl)
+        layout.addWidget(hint_lbl)
         return w
 
     # ------------------------------------------------------------------

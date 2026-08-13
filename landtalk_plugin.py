@@ -851,14 +851,12 @@ class LandTalkPlugin:
                 return
             
             # Get the temp directory
-            import tempfile
             temp_dir = tempfile.gettempdir()
-            
+
             # Create a temporary file for the captured image
             temp_image_path = os.path.join(temp_dir, "debug_captured_image.png")
-            
+
             # Decode and save the base64 image data
-            import base64
             with open(temp_image_path, "wb") as f:
                 f.write(base64.b64decode(self.capture_state.image_data))
             

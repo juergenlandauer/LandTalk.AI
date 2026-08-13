@@ -38,7 +38,12 @@ from qgis.PyQt.QtWidgets import (
 from qgis.PyQt.QtCore import Qt, QUrl
 from qgis.PyQt.QtGui import QFont, QPixmap, QIcon, QDesktopServices, QTextDocument
 from .logging import logger
-from .i18n.tutorial_texts import *
+from .i18n.tutorial_texts import (
+    WINDOW_TITLE, WELCOME_TITLE, WELCOME_SUBTITLE, WELCOME_DESCRIPTION,
+    TAB_GETTING_STARTED, TAB_TIPS_TRICKS, TAB_FAQ,
+    GETTING_STARTED_CONTENT, TIPS_TRICKS_CONTENT, FAQ_CONTENT,
+    DONT_SHOW_AGAIN_TEXT, CLOSE_BUTTON_TEXT,
+)
 
 
 class ClickableTextEdit(QTextEdit):
